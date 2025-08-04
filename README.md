@@ -194,7 +194,7 @@ Quick links:
 - [Testing](CONTRIBUTING.md#testing)
 - [Pull Request Process](CONTRIBUTING.md#pull-request-process)
 
-For bug reports and feature requests, please [open an issue](https://github.com/YOUR_USERNAME/MacOS_Agent/issues).
+For bug reports and feature requests, please [open an issue](https://github.com/YOUR_USERNAME/TuriX-CUA/issues).
 
 ## 🗺️ Roadmap
 | Quarter | Feature | Description |
