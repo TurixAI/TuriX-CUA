@@ -27,13 +27,13 @@ Thank you for your interest in contributing to TuriX! This project is a computer
 1. **Fork the repository** on GitHub
 2. **Clone your fork locally:**
    ```bash
-   git clone https://github.com/YOUR_USERNAME/TuriX-CUA.git
+   git clone https://github.com/Your_name/TuriX-CUA.git
    cd TuriX-CUA
    ```
 
 3. **Set up the upstream remote:**
    ```bash
-   git remote add upstream https://github.com/ORIGINAL_OWNER/TuriX-CUA.git
+   git remote add upstream https://github.com/TurixAI/TuriX-CUA.git
    ```
 
 4. **Create a virtual environment:**
@@ -79,7 +79,7 @@ src/
 
 ```bash
 # Fork the repo on GitHub, then:
-git clone https://github.com/YOUR_USERNAME/TuriX-CUA.git
+git clone https://github.com/TurixAI/TuriX-CUA.git
 cd TuriX-CUA
 git remote add upstream https://github.com/ORIGINAL_OWNER/TuriX-CUA.git
 ```
