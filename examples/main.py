@@ -206,6 +206,7 @@ def main(config_path: str = "config.json"):
 
 # ---------- CLI -------------------------------------------------------------
 if __name__ == "__main__":
+    os.makedirs("images", exist_ok=True)
     parser = argparse.ArgumentParser(description="Run the TuriX agent on Windows.")
     parser.add_argument(
         "-c", "--config", default="config.json", 
