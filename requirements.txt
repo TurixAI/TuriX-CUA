@@ -1,0 +1,36 @@
+# Core dependencies
+asyncio
+typing
+
+# Image processing
+Pillow>=10.0.0
+numpy>=1.24.0
+
+# GUI automation
+pyautogui>=0.9.54
+pynput>=1.7.6
+
+# Windows-specific packages
+pywin32>=306
+psutil>=5.9.0
+
+# Fuzzy string matching
+rapidfuzz>=3.0.0
+fuzzywuzzy>=0.18.0
+
+# AI/ML packages
+langchain-anthropic>=0.1.0
+langchain-openai>=0.1.0
+langchain-google-genai>=1.0.0
+langchain-core>=0.1.0
+pydantic>=2.0.0
+
+# Cloud storage (if needed)
+oss2>=2.17.0
+
+# Other utilities
+portkey-ai>=1.0.0
+
+# Development dependencies (optional)
+ipykernel>=6.25.0
+jupyter>=1.0.0

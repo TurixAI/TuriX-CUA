@@ -1,0 +1,22 @@
+{
+  "logging_level": "INFO",
+  "working_dir_base": "C:/Users/tongy/Desktop/turix/trainingdata/task",
+  "cleanup_previous_runs": true,
+  
+  "llm": {
+    "provider": "turix",
+    "api_key": "your_api_key_here",
+    "base_url": "https://llm.turixapi.io/v1",
+    "model": "turix-model",
+    "temperature": 0.3
+  },
+
+  "agent": {
+    "task": "open Chrome, go to Github, and search for TuriX-CUA, then open the TurixAI/TuriX-CUA repository",
+    "short_memory_len": 5,
+    "max_actions_per_step": 5,
+    "max_steps": 100,
+    "save_conversation_path": "llm_interactions.log",
+    "save_conversation_path_encoding": "utf-8"
+  }
+}
