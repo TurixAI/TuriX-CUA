@@ -194,7 +194,7 @@ Quick links:
 - [Testing](CONTRIBUTING.MD#testing)
 - [Pull Request Process](CONTRIBUTING.MD#pull-request-process)
 
-For bug reports and feature requests, please [open an issue](https://github.com/YOUR_USERNAME/TuriX-CUA/issues).
+For bug reports and feature requests, please [open an issue](https://github.com/TurixAI/TuriX-CUA/issues).
 
 ## 🗺️ Roadmap
 | Quarter | Feature | Description |
