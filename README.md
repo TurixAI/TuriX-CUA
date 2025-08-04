@@ -186,13 +186,13 @@ python examples/main.py
 
 ## 🤝 Contributing
 
-We welcome contributions! Please read our [Contributing Guide](CONTRIBUTING.md) to get started.
+We welcome contributions! Please read our [Contributing Guide](CONTRIBUTING.MD) to get started.
 
 Quick links:
-- [Development Setup](CONTRIBUTING.md#development-setup)
-- [Code Style Guidelines](CONTRIBUTING.md#code-style-guidelines)
-- [Testing](CONTRIBUTING.md#testing)
-- [Pull Request Process](CONTRIBUTING.md#pull-request-process)
+- [Development Setup](CONTRIBUTING.MD#development-setup)
+- [Code Style Guidelines](CONTRIBUTING.MD#code-style-guidelines)
+- [Testing](CONTRIBUTING.MD#testing)
+- [Pull Request Process](CONTRIBUTING.MD#pull-request-process)
 
 For bug reports and feature requests, please [open an issue](https://github.com/YOUR_USERNAME/TuriX-CUA/issues).
 
