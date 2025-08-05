@@ -37,13 +37,14 @@ def load_config(path: Path) -> dict:
 def build_llm(cfg: dict):
     provider = cfg["provider"].lower()
     api_key  = cfg.get("api_key") or os.getenv("API_KEY") or os.getenv("OPENAI_API_KEY")
+    model_name = cfg.get("model_name")
     base_url = cfg.get("base_url")
 
     if provider == "turix":
         if not base_url:
             raise ValueError("OpenAI‑compatible provider requires 'base_url'.")
         return ChatOpenAI(
-            model="turix-model",
+            model=model_name,
             openai_api_base=base_url,
             openai_api_key=api_key,
             temperature=0.3,
