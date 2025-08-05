@@ -11,7 +11,7 @@
   },
 
   "agent": {
-    "task": "open Chrome, go to Github, and search for TuriX-CUA, then open the TurixAI/TuriX-CUA repository",
+    "task": "open Chrome, go to youtube, and search for AI tutorials",
     "short_memory_len": 5,
     "max_actions_per_step": 5,
     "max_steps": 100,
