@@ -151,7 +151,7 @@ Edit task in `examples/config.json`:
 
 #### 4.2 Edit API Configuration
 
-Gte the key for free from our official web page.
+Get the key for free from our official web page.
 
 Edit API in `examples/config.json`:
 ```json
