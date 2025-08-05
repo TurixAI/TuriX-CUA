@@ -151,7 +151,8 @@ Edit task in `examples/config.json`:
 
 #### 4.2 Edit API Configuration
 
-Get the key for free from our official web page.
+Get the key for free from our [official web page](https://www.turix.ai).
+Login to our website and the key is at the bottom.
 
 Edit API in `examples/config.json`:
 ```json
