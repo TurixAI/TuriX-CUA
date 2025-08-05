@@ -7,8 +7,7 @@
     "provider": "turix",
     "api_key": "your_api_key_here",
     "base_url": "https://llm.turixapi.io/v1",
-    "model": "turix-model",
-    "temperature": 0.3
+    "model_name": "turix-model"
   },
 
   "agent": {

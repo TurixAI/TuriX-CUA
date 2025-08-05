@@ -101,8 +101,8 @@ def build_llm(cfg: dict):
     provider = cfg["provider"].lower()
     api_key = cfg.get("api_key") or os.getenv("API_KEY") or os.getenv("OPENAI_API_KEY")
     base_url = cfg.get("base_url")
-    model = cfg.get("model", "gpt-4")
-    temperature = cfg.get("temperature", 0.3)
+    model = cfg.get("model_name", "turix-model")
+    temperature = 0.3
 
     if provider == "turix":
         if not base_url:

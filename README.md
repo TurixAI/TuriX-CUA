@@ -127,7 +127,10 @@ Edit task in `examples/config.json`:
 There is no use_ui parameter in the windows version, the state is only a screenshot.
 
 #### 3.2 Edit API Configuration
-Get the key for free from our official webpage
+
+Get the key for free from our [official web page](https://www.turix.ai).
+Login to our website and the key is at the bottom.
+
 Edit API in `examples/config.json`:
 ```json
 "llm": {
