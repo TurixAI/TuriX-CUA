@@ -47,7 +47,7 @@ Prefer your own model? **Change in `config.json` and go.**
    <img src="./doc/demo1.gif" width="1600" alt="TuriX macOS demo - iPhone price search and document sharing">
 </p>
 
-<p align="center"><strong>Generate a bar-chart in the numbers file sent by boss in wechat, and insert it to the right place of my powerpoint</strong></p>
+<p align="center"><strong>Generate a bar-chart in the numbers file sent by boss in discord and insert it to the right place of my powerpoint, and reply my boss.</strong></p>
 <p align="center">
    <img src="./doc/complex_demo_mac.gif" width="1600" alt="TuriX macOS demo - excel graph to powerpoint">
 </p>
