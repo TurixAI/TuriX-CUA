@@ -54,7 +54,7 @@ Prefer your own model? **Change in `config.json` and go.**
 </p>
 
 <h3 align="center">Windows Demo</h3>
-<p align="center"><strong>Search video content and share with contact</strong></p>
+<p align="center"><strong>Search video content in youtube and like it</strong></p>
 <p align="center">
    <img src="./doc/win_demo1.gif" width="1600" alt="TuriX Windows demo - video search and sharing">
 </p>
