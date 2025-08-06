@@ -78,7 +78,7 @@ Prefer your own model? **Change in `config.json` and go.**
 
 Our agent achieves state-of-the-art performance on desktop automation tasks:
 <p align="center">
-   <img src="./doc/performance_sum.png" width="1600" alt="TuriX performance">
+   <img src="./doc/performance_sum.jpeg" width="1600" alt="TuriX performance">
 </p>
 
 For more details, check our [report](https://turix.ai/technical-report/).
