@@ -28,72 +28,83 @@ def addLoggingLevel(levelName, levelNum, methodName=None):
 
 
 def setup_logging():
-    # Try to add RESULT level, but ignore if it already exists
-    try:
-        addLoggingLevel('RESULT', 35)  # This allows ERROR, FATAL and CRITICAL
-    except AttributeError:
-        pass  # Level already exists, which is fine
 
-    log_type = os.getenv('TuriX_LOGGING_LEVEL', 'info').lower()
+	try:
+		addLoggingLevel('RESULT', 35)  
+	except AttributeError:
+		pass 
 
-    # Check if handlers are already set up
-    if logging.getLogger().hasHandlers():
-        return
+	log_type = os.getenv('turix_LOGGING_LEVEL', 'info').lower()
 
-    # Clear existing handlers
-    root = logging.getLogger()
-    root.handlers = []
+	# Check if handlers are already set up
+	if logging.getLogger().hasHandlers():
+		return
 
-    class TuriXFormatter(logging.Formatter):
-        def format(self, record):
-            if record.name.startswith('turix.'):
-                record.name = record.name.split('.')[-2]
-            return super().format(record)
+	# Clear existing handlers
+	root = logging.getLogger()
+	root.handlers = []
 
-    # Setup single handler for all loggers
-    console = logging.StreamHandler(sys.stdout)
+	class BrowserUseFormatter(logging.Formatter):
+		def format(self, record):
+			if record.name.startswith('turix.'):
+				record.name = record.name.split('.')[-2]
+			return super().format(record)
 
-    # additional setLevel here to filter logs
-    if log_type == 'result':
-        console.setLevel('RESULT')
-        console.setFormatter(TuriXFormatter('%(message)s'))
-    else:
-        console.setFormatter(TuriXFormatter('%(levelname)-8s [%(name)s] %(message)s'))
+	# Setup single handler for all loggers
+	# For Windows, ensure UTF-8 encoding to handle Unicode characters like emojis
+	if sys.platform == 'win32':
+		import io
+		# Wrap stdout with UTF-8 encoding to handle Unicode characters
+		utf8_stdout = io.TextIOWrapper(
+			sys.stdout.buffer, 
+			encoding='utf-8', 
+			errors='replace'
+		)
+		console = logging.StreamHandler(utf8_stdout)
+	else:
+		console = logging.StreamHandler(sys.stdout)
 
-    # Configure root logger only
-    root.addHandler(console)
+	# adittional setLevel here to filter logs
+	if log_type == 'result':
+		console.setLevel('RESULT')
+		console.setFormatter(BrowserUseFormatter('%(message)s'))
+	else:
+		console.setFormatter(BrowserUseFormatter('%(levelname)-8s [%(name)s] %(message)s'))
 
-    # switch cases for log_type
-    if log_type == 'result':
-        root.setLevel('RESULT')  # string usage to avoid syntax error
-    elif log_type == 'debug':
-        root.setLevel(logging.DEBUG)
-    else:
-        root.setLevel(logging.INFO)
+	# Configure root logger only
+	root.addHandler(console)
 
-    # Configure turix logger
-    turix_logger = logging.getLogger('turix')
-    turix_logger.propagate = False  # Don't propagate to root logger
-    turix_logger.addHandler(console)
-    turix_logger.setLevel(root.level)  # Set same level as root logger
+	# switch cases for log_type
+	if log_type == 'result':
+		root.setLevel('RESULT')  # string usage to avoid syntax error
+	elif log_type == 'debug':
+		root.setLevel(logging.DEBUG)
+	else:
+		root.setLevel(logging.INFO)
 
-    logger = logging.getLogger('turix')
-    logger.info('TuriX logging setup complete with level %s', log_type)
-    # Silence third-party loggers
-    for logger in [
-        'WDM',
-        'httpx',
-        'selenium',
-        'playwright',
-        'urllib3',
-        'asyncio',
-        'langchain',
-        'openai',
-        'httpcore',
-        'charset_normalizer',
-        'anthropic._base_client',
-        'PIL.PngImagePlugin',
-    ]:
-        third_party = logging.getLogger(logger)
-        third_party.setLevel(logging.ERROR)
-        third_party.propagate = False
+	# Configure turix logger
+	turix_logger = logging.getLogger('turix')
+	turix_logger.propagate = False  # Don't propagate to root logger
+	turix_logger.addHandler(console)
+	turix_logger.setLevel(root.level)  # Set same level as root logger
+
+	logger = logging.getLogger('turix')
+	logger.info('turix logging setup complete with level %s', log_type)
+	# Silence third-party loggers
+	for logger in [
+		'WDM',
+		'httpx',
+		'selenium',
+		'playwright',
+		'urllib3',
+		'asyncio',
+		'langchain',
+		'openai',
+		'httpcore',
+		'charset_normalizer',
+		'anthropic._base_client',
+		'PIL.PngImagePlugin',
+	]:
+		third_party = logging.getLogger(logger)
+		third_party.setLevel(logging.ERROR)
+		third_party.propagate = False

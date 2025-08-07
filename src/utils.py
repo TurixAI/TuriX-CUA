@@ -2,6 +2,11 @@ import logging
 import time
 from functools import wraps
 from typing import Any, Callable, Coroutine, ParamSpec, TypeVar
+import oss2
+import os
+from oss2 import Auth,Bucket
+from io import BytesIO
+from datetime import datetime
 logger = logging.getLogger(__name__)
 
 
@@ -41,5 +46,14 @@ def time_execution_async(
 
 	return decorator
 
+
+def singleton(cls):
+	instance = [None]
+	def wrapper(*args, **kwargs):
+		if instance[0] is None:
+			instance[0] = cls(*args, **kwargs)
+		return instance[0]
+
+	return wrapper
 
 

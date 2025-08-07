@@ -9,7 +9,7 @@ from src.controller.registry.views import (
 	ActionRegistry,
 	RegisteredAction,
 )
-from src.mac.tree import MacUITreeBuilder
+
 
 class Registry:
 	"""Service for registering and managing actions"""
@@ -77,7 +77,7 @@ class Registry:
 
 		return decorator
 
-	async def execute_action(self, action_name: str, params: dict, mac_tree_builder: Optional[MacUITreeBuilder] = None) -> Any:
+	async def execute_action(self, action_name: str, params: dict, ui_tree_builder=None) -> Any:
 		"""Execute a registered action"""
 		if action_name not in self.registry.actions:
 			raise ValueError(f'Action {action_name} not found')
@@ -94,13 +94,13 @@ class Registry:
 
 			# Prepare arguments based on parameter type
 			if action.requires_mac_builder:
-				if not mac_tree_builder:
+				if not ui_tree_builder:
 					raise ValueError(
-						f'Action {action_name} requires browser but none provided. This has to be used in combination of `requires_mac_builder=True` when registering the action.'
+						f'Action {action_name} requires UI tree builder but none provided. This has to be used in combination of `requires_mac_builder=True` when registering the action.'
 					)
 				if is_pydantic:
-					return await action.function(validated_params, mac_tree_builder=mac_tree_builder)
-				return await action.function(**validated_params.model_dump(), mac_tree_builder=mac_tree_builder)
+					return await action.function(validated_params, ui_tree_builder=ui_tree_builder)
+				return await action.function(**validated_params.model_dump(), ui_tree_builder=ui_tree_builder)
 			
 			if is_pydantic:
 				return await action.function(validated_params)

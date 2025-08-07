@@ -1,28 +1,37 @@
-# requirements.txt  —  mac_agent_env (Python 3.12)
-pyautogui
-pynput
-pypinyin
-fuzzywuzzy
-python-Levenshtein
-oss2
-portkey-ai
-pyobjc>=11.0.0      
-MainContentExtractor>=0.0.4
-beautifulsoup4>=4.12.3
-httpx>=0.27.2
-langchain==0.3.14
-langchain-openai==0.3.1
-langchain-anthropic==0.3.3
-langchain-ollama==0.2.2
-langchain-fireworks>=0.2.6
-langchain-aws>=0.2.11
-langchain-google-genai==2.0.8
-pydantic>=2.10.4
-python-dotenv>=1.0.1
-requests>=2.32.3
-posthog>=3.7.0
-playwright>=1.49.0
-setuptools>=75.8.0
-lmnr[langchain]>=0.4.53
-pycocoa>=25.1.18
-gradio>=5.16.1
+# Core dependencies
+asyncio
+typing
+fastmcp
+
+# Image processing
+Pillow>=10.0.0
+numpy>=1.24.0
+
+# GUI automation
+pyautogui>=0.9.54
+pynput>=1.7.6
+
+# Windows-specific packages
+pywin32>=306
+psutil>=5.9.0
+
+# Fuzzy string matching
+rapidfuzz>=3.0.0
+fuzzywuzzy>=0.18.0
+
+# AI/ML packages
+langchain-anthropic>=0.1.0
+langchain-openai>=0.1.0
+langchain-google-genai>=1.0.0
+langchain-core>=0.1.0
+pydantic>=2.0.0
+
+# Cloud storage (if needed)
+oss2>=2.17.0
+
+# Other utilities
+portkey-ai>=1.0.0
+
+# Development dependencies (optional)
+ipykernel>=6.25.0
+jupyter>=1.0.0

@@ -66,6 +66,11 @@ class CurrentState(BaseModel):
     next_goal: str = Field(..., description="The immediate next goal for the agent.")
     information_stored: str = Field(..., description="Information to remember.")
 
+
+# ---------------------------------------------------------------------------
+# AGENT STEP OUTPUT (MAIN MODEL)
+# ---------------------------------------------------------------------------
+
 class AgentStepOutput(BaseModel):
     """Schema for the agent's per‑step output.
 
@@ -101,8 +106,3 @@ class AgentStepOutput(BaseModel):
         facilitating direct access to structured data.
         """
         return self.model_dump(exclude_none=True, exclude_unset=True)
-
-
-__all__ = [
-    "AgentStepOutput"
-]

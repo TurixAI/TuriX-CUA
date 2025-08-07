@@ -17,7 +17,6 @@ from langchain_openai import ChatOpenAI
 from src.agent.message_manager.views import MessageHistory, MessageMetadata
 from src.agent.prompts import AgentMessagePrompt, SystemPrompt
 from src.agent.views import ActionResult, AgentOutput, AgentStepInfo
-from src.mac.element import MacElementNode
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +34,6 @@ class MessageManager:
 		include_attributes: list[str] = [],
 		max_error_length: int = 400,
 		max_actions_per_step: int = 5,
-		new_task: bool = False,
 	):
 		self.llm = llm
 		self.system_prompt_class = system_prompt_class
@@ -47,7 +45,6 @@ class MessageManager:
 		self.IMG_TOKENS = image_tokens
 		self.include_attributes = include_attributes
 		self.max_error_length = max_error_length
-		self.new_task = new_task
 
 		# Use the updated SystemPrompt with our explicit JSON instructions.
 		system_message = self.system_prompt_class(
@@ -92,7 +89,6 @@ class MessageManager:
 		self._add_message_with_tokens(tool_message)
 		self.tool_id += 1
 
-
 	def add_state_message(
 		self,
 		state_content: list,
@@ -127,7 +123,7 @@ class MessageManager:
 	def _remove_last_AIntool_message(self) -> None:
 		while len(self.history.messages) > 2 and (isinstance(self.history.messages[-1].message, AIMessage) or isinstance(self.history.messages[-1].message, ToolMessage)):
 			self.history.remove_message()
-
+		
 
 	def add_model_output(self, model_output: AgentOutput) -> None:
 		tool_calls = [
@@ -152,6 +148,11 @@ class MessageManager:
 		self._add_message_with_tokens(tool_message)
 		self.tool_id += 1
 	
+	def add_plan(self, plan: Optional[str], position: int | None = None) -> None:
+		if plan:
+			msg = AIMessage(content=plan)
+			self._add_message_with_tokens(msg,position)
+
 	def get_messages(self) -> List[BaseMessage]:
 		msg = [m.message for m in self.history.messages]
 		total_input_tokens = 0

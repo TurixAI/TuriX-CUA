@@ -1,6 +1,6 @@
 from src.logging_config import setup_logging
 
-setup_logging()
+# setup_logging()
 
 from src.agent.prompts import SystemPrompt as SystemPrompt
 from src.agent.service import Agent as Agent
