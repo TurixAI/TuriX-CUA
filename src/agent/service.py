@@ -3,29 +3,27 @@ import asyncio
 import base64
 import io
 import json
-import logging
+import logging,sys
 import os
 import uuid
-from pathlib import Path
-from typing import Any, Callable, Optional, Type, TypeVar
 import pyautogui
+from pynput import keyboard
+from pathlib import Path
+from typing import Any, Optional, Type, TypeVar
 import re
+from dotenv import load_dotenv
+from langchain_core.language_models.chat_models import BaseChatModel
+from typing import Type
 from collections import OrderedDict
 from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_openai import ChatOpenAI, AzureChatOpenAI          # OpenAI endpoints
-from langchain_anthropic import ChatAnthropic                     # Claude
+from langchain_openai import ChatOpenAI, AzureChatOpenAI          
+from langchain_anthropic import ChatAnthropic                     
 from langchain_google_genai import ChatGoogleGenerativeAI  
-from langchain_core.messages import (
-    BaseMessage,
-)
-from datetime import datetime
+from langchain_core.messages import BaseMessage
 from openai import RateLimitError
-from PIL import Image
 from pydantic import BaseModel, ValidationError
 from src.agent.message_manager.service import MessageManager
-from src.agent.prompts import (
-    SystemPrompt,
-)
+from src.agent.prompts import SystemPrompt
 from src.agent.views import (
     ActionResult,
     AgentError,
@@ -35,14 +33,12 @@ from src.agent.views import (
     AgentStepInfo,
     AgentBrain
 )
-from src.controller.registry.views import ActionModel
 from src.controller.service import Controller
 from src.utils import time_execution_async
 from src.agent.output_schemas import OutputSchemas
 from src.agent.structured_llm import *
-from pynput import keyboard
+load_dotenv()
 logger = logging.getLogger(__name__)
-
 T = TypeVar('T', bound=BaseModel)
 
 def screenshot_to_dataurl(screenshot):
@@ -50,6 +46,20 @@ def screenshot_to_dataurl(screenshot):
     screenshot.save(img_byte_arr, format='PNG')
     base64_encoded = base64.b64encode(img_byte_arr.getvalue()).decode('utf-8')
     return f'data:image/png;base64,{base64_encoded}'
+
+def _get_installed_app_names() -> list[str]:
+    """
+    Returns a list of application names (minus ".app") 
+    from both /Applications and /System/Applications
+    """
+    apps = set()
+    for apps_path in ["/Applications", "/System/Applications"]:
+        if os.path.exists(apps_path):
+            for item in os.listdir(apps_path):
+                if item.endswith(".app"):
+                    # e.g. "Safari.app" -> "Safari"
+                    apps.add(item[:-4])
+    return list(apps)
 
 def to_structured(llm: BaseChatModel, Schema, Structured_Output) -> BaseChatModel:
     """
@@ -66,16 +76,13 @@ def to_structured(llm: BaseChatModel, Schema, Structured_Output) -> BaseChatMode
     )
 
     if isinstance(llm, OPENAI_CLASSES):
-        # OpenAI only: use the response_format param with your flattened schema
         return llm.bind(response_format=Schema)
 
     if isinstance(llm, ANTHROPIC_OR_GEMINI):
-        # Claude & Gemini accept any schema textually → keep the nice Pydantic model
         return llm.with_structured_output(Structured_Output)
 
-    # Fallback: no structured output
     return llm
-
+        
 class Agent:
     def __init__(
         self,
@@ -85,43 +92,30 @@ class Agent:
         controller: Controller = Controller(),
         save_conversation_path: Optional[str] = None,
         save_conversation_path_encoding: Optional[str] = 'utf-8',
+        save_memory_encoding: Optional[str] = 'utf-8',
         max_failures: int = 5,
         retry_delay: int = 10,
         system_prompt_class: Type[SystemPrompt] = SystemPrompt,
         max_input_tokens: int = 32000,
         resume = False,
-        include_attributes: list[str] = [
-            'title',
-            'type',
-            'name',
-            'role',
-            'tabindex',
-            'aria-label',
-            'placeholder',
-            'value',
-            'alt',
-            'aria-expanded',
-        ],
         max_error_length: int = 400,
-        max_actions_per_step: int = 5,
-        register_done_callback: Callable[['AgentHistoryList'], None] | None = None,
+        max_actions_per_step: int = 10,
         tool_calling_method: Optional[str] = 'auto',
         agent_id: Optional[str] = None,
     ):
-        self.current_time = datetime.now()
         self.agent_id = agent_id or str(uuid.uuid4())
-        self.original_task: str = task
         self.task = task
         self.resume = resume
         self.llm = to_structured(llm, OutputSchemas.AGENT_RESPONSE_FORMAT, AgentStepOutput)
         self.save_conversation_path = save_conversation_path
         self.save_conversation_path_encoding = save_conversation_path_encoding
-        self.include_attributes = include_attributes
+        self.save_momery_encoding = save_memory_encoding
         self.max_error_length = max_error_length
         self.screenshot_annotated = None
         self.short_memory_len = short_memory_len
         self.max_input_tokens = max_input_tokens
         self.save_temp_file_path = os.path.join(os.path.dirname(__file__), 'temp_files')
+        self.previous_screenshot = None
         self.controller = controller
         self.max_actions_per_step = max_actions_per_step
         self.last_step_action = None
@@ -131,30 +125,25 @@ class Agent:
         self.last_goal = None
         self.system_prompt_class = system_prompt_class
         self.state_memory = OrderedDict()
-
+        self.status = "success"
+        self.fail_msg = ""
+        self.analysis = ""
         self._setup_action_models()
         self._set_model_names()
-        self.evaluation = None
-
         self.tool_calling_method = self.set_tool_calling_method(tool_calling_method)
         self.initiate_messages()
         self._last_result = None
-        self.register_done_callback = register_done_callback
-
-        # Agent run variables
-        self.history: AgentHistoryList = AgentHistoryList(history=[])
+        self.histories: AgentHistoryList = AgentHistoryList(history=[])
         self.n_steps = 1
         self.consecutive_failures = 0
         self.max_failures = max_failures
         self.retry_delay = retry_delay
-        self._paused = False
-        self._stopped = False
+        self._paused = False      # for pausing the agent(save and load memory)
+        self._stopped = False     # for stopping the agent
         self.short_memory = ''
         self.long_memory = ''
         self.infor_memory = []
-        self.last_pid = None
-        if save_conversation_path:
-            logger.info(f'Saving conversation to {save_conversation_path}')
+        self.ask_for_help = False
 
         if self.resume and not agent_id:
             raise ValueError("Agent ID is required for resuming a task.")
@@ -163,27 +152,32 @@ class Agent:
     def _set_model_names(self) -> None:
         self.chat_model_library = self.llm.__class__.__name__
         if hasattr(self.llm, 'model_name'):
-            self.model_name = self.llm.model_name  # type: ignore
+            self.model_name = self.llm.model_name
         elif hasattr(self.llm, 'model'):
-            self.model_name = self.llm.model  # type: ignore
+            self.model_name = self.llm.model
         else:
             self.model_name = 'Unknown'
 
     def set_tool_calling_method(self, tool_calling_method: Optional[str]) -> Optional[str]:
-        if tool_calling_method == 'auto':
-            if self.chat_model_library == 'ChatGoogleGenerativeAI':
-                return None
-            elif self.chat_model_library == 'ChatOpenAI':
-                return 'function_calling'
-            elif self.chat_model_library == 'AzureChatOpenAI':
-                return 'function_calling'
-            else:
-                return None
+        pass
 
     def _setup_action_models(self) -> None:
         """Setup dynamic action models from controller's registry"""
         self.ActionModel = self.controller.registry.create_action_model()
         self.AgentOutput = AgentOutput.type_with_custom_actions(self.ActionModel)
+    
+    def capture_screenshot(self):
+        """Capture a screenshot of the current screen"""
+        try:
+            screenshot = pyautogui.screenshot()
+            screenshot.thumbnail((screenshot.width // 2, screenshot.height // 2))
+            return screenshot
+        except Exception as e:
+            logger.error(f"Failed to capture screenshot: {e}")
+            return None
+        
+    def check_action(self, state, actions):
+        return True
 
     def save_memory(self) -> None:
         """
@@ -201,7 +195,7 @@ class Agent:
         }
         file_name = os.path.join(self.save_temp_file_path, f"memory.jsonl")
         os.makedirs(os.path.dirname(file_name), exist_ok=True) if os.path.dirname(file_name) else None
-        with open(file_name, "w", encoding=self.save_conversation_path_encoding) as f:
+        with open(file_name, "w", encoding=self.save_momery_encoding) as f:
             if os.path.getsize(file_name) > 0:
                 f.truncate(0)
             f.write(json.dumps(data, ensure_ascii=False, default=lambda o: list(o) if isinstance(o, set) else o) + "\n")
@@ -214,7 +208,7 @@ class Agent:
             return
         file_name = os.path.join(self.save_temp_file_path, f".jsonl")
         if os.path.exists(file_name):
-            with open(file_name, "r", encoding=self.save_conversation_path_encoding) as f:
+            with open(file_name, "r", encoding=self.save_momery_encoding) as f:
                 lines = f.readlines()
             if len(lines) >= 1:
                 data = json.loads(lines[-1])
@@ -223,24 +217,29 @@ class Agent:
                 self.infor_memory = data.get("infor_memory", [])
                 self.state_memory = data.get("state_memory", None)
                 self.n_steps = data.get("step", 1)
-                logger.info(f"Loaded memory from {file_name}")
 
     @time_execution_async("--step")
     async def step(self, step_info: Optional[AgentStepInfo] = None) -> None:
-        step_id = self.n_steps
-        logger.info(f"\nStep {self.n_steps}")
         model_output = None
-        result: list[ActionResult] = []     
+        result: list[ActionResult] = []
+        logger.info(f"step {self.n_steps} started")
+
         try:
+            state = ''
+            if self.n_steps == 1:
+                apps = _get_installed_app_names()
+                app_list = ', '.join(apps)
+                state = f'The available apps in this macbook is: {app_list}'
+            self.save_memory()
+            
             if self.n_steps >= 2:
-                annotated_screenshot = pyautogui.screenshot()
-                # screenshot_filename = f'images/screenshot_{self.n_steps}.png'
-                # annotated_screenshot.save(screenshot_filename) 
-                self.screenshot_annotated = annotated_screenshot
+                self.previous_screenshot = self.screenshot_annotated
+                screenshot = self.capture_screenshot()
+                self.screenshot_annotated = screenshot
                 state_content = [
                     {
                         "type": "text",
-                        "content": f"The screenshot is provided. The previous action is evaluated to be {self.evaluation}.\n\n Saved information memory: {self.infor_memory}\n\n"
+                        "content": f"The previous action is evaluated to be successful.\n\n Saved information memory: {self.infor_memory}\n\n"
                         f"{self.short_memory}"
                     },
                     {
@@ -249,17 +248,16 @@ class Agent:
                     }
                 ]
             else:
-                screenshot = pyautogui.screenshot()
+                screenshot = self.capture_screenshot()
                 self.screenshot_annotated = screenshot
-                # screenshot.save(f'images/screenshot_{self.n_steps}.png')
                 state_content = [
                     {
                         "type": "text",
-                        "content": f"The screenshot is provided."
+                        "content": f"State is: {state}"
                     },
                     {
                         "type": "image_url",
-                        "image_url": {"url": screenshot_to_dataurl(screenshot)},
+                        "image_url": {"url": screenshot_to_dataurl(self.screenshot_annotated)},
                     }]
             self.agent_message_manager._remove_last_AIntool_message()
             self.agent_message_manager._remove_last_state_message()
@@ -267,33 +265,30 @@ class Agent:
 
             input_messages = self.agent_message_manager.get_messages()
             model_output, raw = await self.get_next_action(input_messages)
-            # ---------------------------
-            # 6) Save the logging and data, manage the messages
-            # ---------------------------
+
             self.last_goal = model_output.current_state.next_goal
-            self.evaluation = model_output.current_state.evaluation_previous_goal
             information_stored = model_output.current_state.information_stored
             self._save_agent_conversation(input_messages, model_output,step=self.n_steps)
-
             self.agent_message_manager._remove_last_state_message()
             self.agent_message_manager.add_model_output(model_output)
-
+            
             self.last_step_action = [action.model_dump(exclude_unset=True) for action in model_output.action] if model_output else []
 
             self.state_memory[f'Step {self.n_steps}'] = f'Goal: {self.last_goal}'
-            self.state_memory[f'Step {self.n_steps} is'] = f'({self.evaluation})'
+            self.state_memory[f'Step {self.n_steps} is'] = '(success)'
 
             result = await self.controller.multi_act(
-                model_output.action
+                model_output.action, 
+                action_valid=self.check_action(state, actions=self.last_step_action)
             )
             self._last_result = result
             if information_stored != 'None':
                 self.infor_memory.append({f'Step {self.n_steps}, the information stored is: {information_stored}'})
             if self.last_step_action:
                 self.goal_action_memory[f'Step {self.n_steps}'] = f'Goal: {self.last_goal}, Actions: {self.last_step_action}'
-                self.goal_action_memory[f'Step {self.n_steps} is'] = f'({self.evaluation})'
+                self.goal_action_memory[f'Step {self.n_steps} is'] = f'(success)'
                 self.long_goal_action_memory[f'Step {self.n_steps}'] = f'Goal: {self.last_goal}, Actions: {self.last_step_action}'
-                self.long_goal_action_memory[f'Step {self.n_steps} is'] = f'({self.evaluation})'
+                self.long_goal_action_memory[f'Step {self.n_steps} is'] = f'(success)'
                 if len(self.goal_action_memory) > self.short_memory_len:
                     first_key = next(iter(self.goal_action_memory))
                     del self.goal_action_memory[first_key]
@@ -305,32 +300,29 @@ class Agent:
 
         finally:
             if result:
-                self._make_history_item(model_output, result=result, state='')
+                self._make_history_item(model_output, state, result)
         self.n_steps += 1
 
     async def _handle_step_error(self, error: Exception) -> list[ActionResult]:
-        include_trace = logger.isEnabledFor(logging.DEBUG)
+        logger.exception(f"[Agent:{self.agent_id}] step {self.n_steps} raised {type(error).__name__}")
+
+        include_trace = True
         error_msg = AgentError.format_error(error, include_trace=include_trace)
         prefix = f'❌ Result failed {self.consecutive_failures + 1}/{self.max_failures} times:\n '
 
         if isinstance(error, (ValidationError, ValueError)):
-            logger.error(f'{prefix}{error_msg}')
             if 'Max token limit reached' in error_msg:
-                # Possibly reduce tokens from history
                 self.agent_message_manager.max_input_tokens -= 500
-                logger.info(f'Reducing agent max input tokens: {self.agent_message_manager.max_input_tokens}')
                 self.agent_message_manager.cut_messages()
             elif 'Could not parse response' in error_msg:
                 error_msg += '\n\nReturn a valid JSON object with the required fields.'
             self.consecutive_failures += 1
 
         elif isinstance(error, RateLimitError):
-            logger.warning(f'{prefix}{error_msg}')
             await asyncio.sleep(self.retry_delay)
             self.consecutive_failures += 1
 
         else:
-            logger.error(f'{prefix}{error_msg}')
             self.consecutive_failures += 1
 
         return [ActionResult(error=error_msg, include_in_memory=True)]
@@ -346,8 +338,8 @@ class Agent:
             result=result,
             state=state,
         )
-        self.history.history.append(history_item)
-
+        self.histories.history.append(history_item)
+    
     @time_execution_async('--get_next_action')
     async def get_next_action(self, input_messages: list[BaseMessage]) -> AgentOutput:
         """
@@ -355,28 +347,18 @@ class Agent:
         Using the dynamic self.AgentOutput
         """        
         response: dict[str, Any] = await self.llm.ainvoke(input_messages)
-        # logger.debug(f'LLM response: {response}')
         record = str(response.content)
 
-        output_dict = json.loads(record)
-        # check the data type of output_dict
+        output = re.sub(r"^```(json)?", "", record.strip())
+        output = re.sub(r"```$", "", output).strip()
+        output_dict = json.loads(output) 
         brain = AgentBrain(evaluation_previous_goal=output_dict['current_state']['evaluation_previous_goal'],
                             information_stored=output_dict['current_state']['information_stored'],
                             next_goal=output_dict['current_state']['next_goal'],
                             )
         parsed: AgentOutput | None = AgentOutput(current_state=brain, action=output_dict['action'])
-
-        self._log_response(parsed)
         return parsed, record
-   
-    def _log_response(self, response: AgentOutput) -> None:
-        logger.info(f'Eval: {response.current_state.evaluation_previous_goal}')
-        logger.info(f'Memory: {self.state_memory}')
-        logger.info(f'Next goal: {response.current_state.next_goal}')
-        for i, action in enumerate(response.action):
-            logger.info(f'Action {i + 1}/{len(response.action)}: {action.model_dump_json(exclude_unset=True)}')
     
-
     def _save_agent_conversation(
         self,
         input_messages: list[BaseMessage],
@@ -387,21 +369,19 @@ class Agent:
         Write all the agent conversation (input messages + final AgentOutput)
         into a file: e.g. "agent_conversation_{step}.txt"
         """
-        # If you do NOT want to save or no path provided, skip
         if not self.save_conversation_path:
             return
         file_name = f"{self.save_conversation_path}_agent_{step}.txt"
         os.makedirs(os.path.dirname(file_name), exist_ok=True) if os.path.dirname(file_name) else None
 
         with open(file_name, "w", encoding=self.save_conversation_path_encoding) as f:
-            # 1) Write input messages
             self._write_messages_to_file(f, input_messages)
-            # 2) Write the final agent "response" (AgentOutput)
             if response is not None:
                 self._write_response_to_file(f, response)
 
-        logger.info(f"Agent conversation saved to: {file_name}")
-
+    # ---------------------------------------------
+    # OPTIONAL: Reuse your existing writer helpers
+    # ---------------------------------------------
     def _write_messages_to_file(self, f: Any, messages: list[BaseMessage]) -> None:
         """
         For each message, write it out in a human-readable format.
@@ -419,7 +399,6 @@ class Agent:
                             image_url = item['image_url']['url']
                             f.write(f"[Image URL]\n{image_url[:100]}...\n\n")
             else:
-                # If it's a string or something else:
                 f.write(f"{str(message.content)}\n\n")
             f.write('\n' + '='*60 + '\n')
 
@@ -428,70 +407,71 @@ class Agent:
         If the AgentOutput is JSON-like, you can do:
         """
         f.write('RESPONSE\n')
-        # If it's an AgentOutput, you might do:
-        #   f.write(json.dumps(json.loads(response.model_dump_json(exclude_unset=True)), indent=2))
-        # Otherwise just string-ify it:
         f.write(str(response) + '\n')
-
         f.write('\n' + '='*60 + '\n')
 
-    def _log_agent_run(self) -> None:
-        logger.info(f'Starting task: {self.task}')
+    def _too_many_failures(self) -> bool:
+        if self.consecutive_failures >= self.max_failures:
+            return True
+        return False
 
     async def run_MCP(self, max_steps: int = 100) -> str:
-        terminate_signal = asyncio.Event()
-        loop = asyncio.get_event_loop()
+        # Set up a hotkey listener to stop the agent
+        # if you want to stop the agent manually, press cmd+shift+2
+        terminate_event = asyncio.Event()
+        loop = asyncio.get_running_loop()
 
-        def hotkey_signal():
-            loop.call_soon_threadsafe(terminate_signal.set)
-        
-        listener = keyboard.GlobalHotKeys({
-            '<ctrl>+<shift>+2': hotkey_signal,  # Ctrl + Shift + 2 to stop the agent
+        def _on_hotkey():
+            loop.call_soon_threadsafe(terminate_event.set)
+
+        hotkey_listener = keyboard.GlobalHotKeys({
+            '<cmd>+<shift>+2': _on_hotkey
         })
-        listener.start()
+        hotkey_listener.start()
         try:
-            self._log_agent_run()
-
-            for step in range(max_steps):
+            for step in range(1,max_steps+1):
+                await asyncio.sleep(0)
                 if self.resume:
                     self.load_memory()
                     self.resume = False
                 if self._too_many_failures():
-                    return "Too many consecutive failures, stopping agent."
-                
-                if terminate_signal.is_set():
-                    return "Agent run terminated by user."
+                    return "Too many consecutive failures, stopping the agent."
+
+                if not await self._handle_control_flags():
+                    break
+
+                if terminate_event.is_set():
+                    return "User terminate the agent"
 
                 await self.step()
 
-                if self.history.is_done():
+                if self.histories.is_done():
                     return "Task completed successfully"
-            else:
-                logger.info('Failed to complete task in maximum steps')
-
-            return "Failed to complete task in maximum steps"
+                
+            return "Failed to complete task"
         except Exception:
-            logger.exception('Error running agent')
             raise
         finally:
-            if hasattr(self, '_grpc_channel'):
-                await self._grpc_channel.close()
+            hotkey_listener.stop()
 
-    def _too_many_failures(self) -> bool:
-        if self.consecutive_failures >= self.max_failures:
-            logger.error(f'Stopping due to {self.max_failures} consecutive failures')
-            return True
-        return False
+    async def _handle_control_flags(self) -> bool:
+        if self._stopped:
+            return False
+
+        while self._paused:
+            await asyncio.sleep(0.2)
+            if self._stopped:
+                return False
+
+        return True
 
     def initiate_messages(self):
         self.agent_message_manager = MessageManager(
             llm=self.llm,
             task=self.task,
             action_descriptions=self.controller.registry.get_prompt_description(),
-            system_prompt_class=self.system_prompt_class,  # Typically your SystemPrompt
+            system_prompt_class=self.system_prompt_class,
             max_input_tokens=self.max_input_tokens,
-            include_attributes=self.include_attributes,
             max_error_length=self.max_error_length,
             max_actions_per_step=self.max_actions_per_step,
         )
-

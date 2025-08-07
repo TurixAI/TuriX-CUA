@@ -1,37 +1,30 @@
-# Core dependencies
-asyncio
-typing
-fastmcp
-
-# Image processing
-Pillow>=10.0.0
-numpy>=1.24.0
-
-# GUI automation
-pyautogui>=0.9.54
-pynput>=1.7.6
-
-# Windows-specific packages
-pywin32>=306
-psutil>=5.9.0
-
-# Fuzzy string matching
-rapidfuzz>=3.0.0
-fuzzywuzzy>=0.18.0
-
-# AI/ML packages
-langchain-anthropic>=0.1.0
-langchain-openai>=0.1.0
-langchain-google-genai>=1.0.0
+# ────────────────────── Core ──────────────────────
 langchain-core>=0.1.0
+langchain-openai>=0.0.5
 pydantic>=2.0.0
+python-dotenv>=1.0.0
 
-# Cloud storage (if needed)
-oss2>=2.17.0
+# ───────────── macOS ────────────
+pyobjc-core>=10.1
+pyobjc-framework-Cocoa>=10.1
+pyobjc-framework-Quartz>=10.1
+pyobjc-framework-ApplicationServices>=10.1
 
-# Other utilities
-portkey-ai>=1.0.0
+# ───────────────── UI Automation ──────────────────
+pyautogui==0.9.54
+pyscreeze>=1.0.1
+mss>=9.0.1
+pillow>=10.3.0 
+pynput>=1.7.6
+pyperclip>=1.8.2
 
-# Development dependencies (optional)
-ipykernel>=6.25.0
-jupyter>=1.0.0
+# ───────────────── Async / Server ─────────────────
+fastmcp>=0.1.0
+
+# ──────────────── Logging & Debugging ─────────────
+traceback-with-variables>=2.0.4
+
+# ─────────────── Additional LLM Providers ─────────
+langchain-anthropic>=0.0.5
+langchain-google-genai>=0.0.5
+langchain-community>=0.0.10

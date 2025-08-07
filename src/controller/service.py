@@ -1,12 +1,14 @@
 import asyncio
 import logging
+import subprocess
 from typing import Optional
-
+import Cocoa
 from src.agent.views import ActionModel, ActionResult
 from src.controller.registry.service import Registry
 from src.controller.views import (
 	InputTextAction,
 	OpenAppAction,
+	AppleScriptAction,
 	PressAction,
 	PressCombinedAction,
 	DragAction,
@@ -14,12 +16,10 @@ from src.controller.views import (
 	LeftClickPixel,
 	ScrollDownAction,
 	ScrollUpAction,
-	MoveToAction,
+	MoveToAction
 )
+from src.helpers.actions import type_into, press, _scroll_invisible_at_position, move_to, left_click_pixel, right_click_pixel, press_combination, drag_pixel
 from src.utils import time_execution_async, time_execution_sync
-from src.windows.openapp import open_application_by_name
-from src.windows.actions import WindowsActions
-
 logger = logging.getLogger(__name__)
 
 class Controller:
@@ -29,11 +29,10 @@ class Controller:
 	):
 		self.exclude_actions = exclude_actions
 		self.registry = Registry(exclude_actions)
-		self.win = WindowsActions()
 		self._register_default_actions()
 
 	def _register_default_actions(self):
-		"""Register all default Windows UI actions"""
+		"""Register all default mac actions"""
 
 		@self.registry.action(
 				'Complete task',
@@ -42,11 +41,11 @@ class Controller:
 			return ActionResult(extracted_content='done', is_done=True)
 		@self.registry.action(
 				'Type', 
-				param_model=InputTextAction,
-				requires_mac_builder=False)
+				param_model=InputTextAction
+				)
 		async def input_text(text: str):
 			try:			
-				input_successful = await self.win.type_text(text)
+				input_successful = await type_into(text)
 				if input_successful:
 					return ActionResult(extracted_content=f'Successfully input text')
 				else:
@@ -58,37 +57,79 @@ class Controller:
 				return ActionResult(extracted_content=msg, error=msg)
 
 
-		@self.registry.action("Open a Windows app", param_model=OpenAppAction)
+		@self.registry.action("Open a mac app", param_model=OpenAppAction)
 		async def open_app(app_name: str):
 			"""
-			Attempt to open a Windows app by name.
+			Attempt to open a macOS app by name. Then:
+			1) Try pgrep-based PID lookup first.
+			2) If that fails or the process has no visible window, fallback to fuzzy matching
+			against NSWorkspace.sharedWorkspace().runningApplications().
 			"""
 
 			user_input = app_name
-			if user_input.lower() == 'wechat':
-				user_input = '微信'
-			success, _ = await open_application_by_name(user_input)
-			logger.info(f"\nLaunching app: {user_input}...")			
+			workspace = Cocoa.NSWorkspace.sharedWorkspace()
+			logger.info(f"\nLaunching app: {user_input}...")
+
+			success = workspace.launchApplication_(user_input)
 			if not success:
 				msg = f"❌ Failed to launch '{user_input}'"
 				logger.error(msg)
 				return ActionResult(extracted_content=msg, error=msg)
-
-		
-			pid = None
-
-			success_msg = f"✅ Launched {user_input}, PID={pid}"
+			
+			success_msg = f"✅ Launched {user_input}"
 			logger.info(success_msg)
-			return ActionResult(extracted_content=success_msg, current_app_pid=pid)
+			return ActionResult(extracted_content=success_msg)
+		
+		@self.registry.action(
+			'Run an AppleScript',
+			param_model=AppleScriptAction
+		)
+		async def run_apple_script(script: str):
+			logger.debug(f'Running AppleScript: {script}')
+			
+			wrapped_script = f'''
+				try
+					{script}
+					return "OK"
+				on error errMsg
+					return "ERROR: " & errMsg
+				end try
+			'''
+			
+			try:
+				result = subprocess.run(
+					['osascript', '-e', wrapped_script],
+					capture_output=True,
+					text=True
+				)
+				
+				if result.returncode == 0:
+					output = result.stdout.strip()
+					if output == "OK":
+						return ActionResult(extracted_content="Success")
+					elif output.startswith("ERROR:"):
+						error_msg = output
+						logger.error(error_msg)
+						return ActionResult(extracted_content=error_msg, error=error_msg)
+					else:
+						return ActionResult(extracted_content=output)
+				else:
+					error_msg = f"AppleScript failed with return code {result.returncode}: {result.stderr.strip()}"
+					logger.error(error_msg)
+					return ActionResult(extracted_content=error_msg, error=error_msg)
+					
+			except Exception as e:
+				error_msg = f"Failed to run AppleScript: {str(e)}"
+				logger.error(error_msg)
+				return ActionResult(extracted_content=error_msg, error=error_msg)
 		
 		@self.registry.action(
 			'Single Hotkey',
 			param_model=PressAction,
 		)
 		async def Hotkey(key: str = "enter"):
-			# The key is Key.enter, but what i need is the string "enter"
 			key_press = key.replace("Key.", "")
-			press_successful = await self.win.press_key(key_press)
+			press_successful = await press(key_press)
 			if press_successful:
 				logging.info(f'✅ pressed key code: {key}')
 				return ActionResult(extracted_content=f'Successfully press keyboard with key code {key}')
@@ -102,16 +143,14 @@ class Controller:
 				"""Strip the `Key.` prefix and any stray quote marks."""
 				if raw is None:
 					return None
-				return raw.replace("Key.", "").strip("'\"")   # handles 't', "t", Key.'t', etc.
+				return raw.replace("Key.", "").strip("'\"")
 			key1 = clean_key(key1)
 			key2 = clean_key(key2)
-			if key3:	
-				key3 = clean_key(key3)
+			key3 = clean_key(key3)
 			key_map = {
-				'cmd': 'ctrl',
+				'cmd': 'command',
 				'delete': 'backspace'
 			}
-			# 映射键名
 			def map_key(key: str) -> str:
 				return key_map.get(key.lower(), key)
 			
@@ -119,26 +158,24 @@ class Controller:
 			key2 = map_key(key2)
 			key3 = map_key(key3) if key3 is not None else None
 			if key3 is not None:
-				press_successful = await self.win.press_hotkey(key1, key2, key3)
+				press_successful = await press_combination(key1, key2, key3)
 				if press_successful:
 					logging.info(f'✅ pressed combination key: {key1}, {key2} and {key3}')
-				return ActionResult(extracted_content=f'Successfully press keyboard with key code {key1}, {key2} and {key3}')
+					return ActionResult(extracted_content=f'Successfully press keyboard with key code {key1}, {key2} and {key3}')
 			else:
-				press_successful = await self.win.press_hotkey(key1, key2)
+				press_successful = await press_combination(key1,key2,key3=None)
 				if press_successful:
 					logging.info(f'✅ pressed combination key: {key1} and {key2}')
-				return ActionResult(extracted_content=f'Successfully press keyboard with key code {key1} and {key2}')
+					return ActionResult(extracted_content=f'Successfully press keyboard with key code {key1} and {key2}')
 
 		@self.registry.action(
 			'RightSingle click at specific pixel',
-			param_model=RightClickPixel,
-			requires_mac_builder=False
+			param_model=RightClickPixel
 		)
 		async def RightSingle(position: list = [0,0]):
 			logger.debug(f'Correct clicking pixel position {position}')
 			try:
-				x, y = position
-				click_successful = await self.win.click(x, y, button='right')
+				click_successful = await right_click_pixel(position)
 				if click_successful:
 					logging.info(f'✅ Finished right click at pixel: {position}')
 					return ActionResult(extracted_content=f'Successfully clicked pixel {position}')
@@ -152,14 +189,12 @@ class Controller:
 			
 		@self.registry.action(
 			'Left click at specific pixel',
-			param_model=LeftClickPixel,
-			requires_mac_builder=False
+			param_model=LeftClickPixel
 		)
 		async def Click(position: list = [0,0]):
 			logger.debug(f'Correct clicking pixel position {position}')
 			try:
-				x, y = position
-				click_successful = await self.win.click(x, y, button='left')
+				click_successful = await left_click_pixel(position)
 				if click_successful:
 					logging.info(f'✅ Finished left click at pixel: {position}')
 					return ActionResult(extracted_content=f'Successfully clicked pixel {position}')
@@ -173,14 +208,11 @@ class Controller:
 			
 		@self.registry.action(
 			'Drag an object from one pixel to another',
-			param_model=DragAction,
-			requires_mac_builder=False
+			param_model=DragAction
 		)
 		async def Drag(position1: list = [0,0], position2: list = [0,0]):
 			try:
-				x1, y1 = position1
-				x2, y2 = position2
-				drag_successful = await self.win.drag(x1, y1, x2, y2)
+				drag_successful = await drag_pixel(position1, position2)
 				if drag_successful:
 					logger.info(f'Correct draging pixel from position {position1} to {position2}')
 					return ActionResult(extracted_content=f'Successfully drag pixel {position1} to {position2}')
@@ -195,13 +227,11 @@ class Controller:
 		@self.registry.action(
 				'Move mouse to specific pixel',
 				param_model=MoveToAction,
-				requires_mac_builder=False
 		)
 		async def move_mouse(position: list = [0,0]):
 			logger.debug(f'Correct move mouse to position {position}')
 			try:
-				x, y = position
-				move_successful = await self.win.move_mouse(x, y)
+				move_successful = await move_to(position)
 				if move_successful:
 					logging.info(f'✅ Finished move mouse to pixel: {position}')
 					return ActionResult(extracted_content=f'Successfully move mouse to {position}')
@@ -217,10 +247,10 @@ class Controller:
 			'Scroll up',
 			param_model=ScrollUpAction,
 		)
-		async def scroll_up(position, dx: int = -20, dy: int = 20):
+		async def scroll_up(position, dx: int = 0, dy: int = 20):
 			x,y = position
 			amount = dy
-			scroll_successful = await self.win.scroll(x, y, amount)
+			scroll_successful = await _scroll_invisible_at_position(x,y,amount)
 			if scroll_successful:
 				logging.info(f'✅ Scrolled up by {amount}')
 				return ActionResult(extracted_content=f'Successfully scrolled up by {amount}')
@@ -229,10 +259,10 @@ class Controller:
 			'Scroll down',
 			param_model=ScrollDownAction,
 		)
-		async def scroll_down(position, dx: int = -20, dy: int = 20):
+		async def scroll_down(position, dx: int = 0, dy: int = 20):
 			x,y = position
 			amount = dy
-			scroll_successful = await self.win.scroll(x, y, -amount)
+			scroll_successful = await _scroll_invisible_at_position(x,y, -amount)
 			if scroll_successful:
 				logging.info(f'✅ Scrolled down by {amount}')
 				return ActionResult(extracted_content=f'Successfully scrolled down by {amount}')
@@ -260,27 +290,30 @@ class Controller:
 
 	@time_execution_async('--multi-act')
 	async def multi_act(
-		self, actions: list[ActionModel], ui_tree_builder=None
+		self, actions: list[ActionModel], action_valid: bool = True
 	) -> list[ActionResult]:
 		"""Execute multiple actions"""
 		results = []
-		for i, action in enumerate(actions):
-			results.append(await self.act(action, ui_tree_builder))
-			await asyncio.sleep(0.5)
+		if action_valid:
+			for i, action in enumerate(actions):
+				results.append(await self.act(action))
+				await asyncio.sleep(0.5)
 
-			logger.debug(f'Executed action {i + 1} / {len(actions)}')
-			if results[-1].is_done or results[-1].error or i == len(actions) - 1:
-				break
+				logger.debug(f'Executed action {i + 1} / {len(actions)}')
+				if results[-1].is_done or results[-1].error or i == len(actions) - 1:
+					break
 
-		return results
+			return results
+		else:
+			return [ActionResult(error="Invalid action. Please use the screenshot to determine the correct pixel to act on again.",include_in_memory=True)]
 
 	@time_execution_sync('--act')
-	async def act(self, action: ActionModel, ui_tree_builder=None) -> ActionResult:
+	async def act(self, action: ActionModel) -> ActionResult:
 		"""Execute an action"""
 		try:
 			for action_name, params in action.model_dump(exclude_unset=True).items():
 				if params is not None:
-					result = await self.registry.execute_action(action_name, params, ui_tree_builder=ui_tree_builder)
+					result = await self.registry.execute_action(action_name, params)
 					if isinstance(result, str):
 						return ActionResult(extracted_content=result)
 					elif isinstance(result, ActionResult):

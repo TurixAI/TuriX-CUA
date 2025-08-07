@@ -1,7 +1,10 @@
-# output_schemas.py
 from typing import Any, Dict
 
 class OutputSchemas:
+    """
+    A container for all model output schemas and their associated response formats.
+    """
+
     AGENT_SCHEMA = {
         "type": "object",
         "properties": {
@@ -149,4 +152,3 @@ class OutputSchemas:
             "schema": AGENT_SCHEMA
         }
     }
-

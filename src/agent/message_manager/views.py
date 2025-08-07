@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-from typing import List, Optional
-
-from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
+from typing import List
+from langchain_core.messages import  BaseMessage
 from pydantic import BaseModel, Field
-
 
 class MessageMetadata(BaseModel):
 	"""Metadata for a message including token counts"""
@@ -24,11 +22,7 @@ class MessageHistory(BaseModel):
 
 	messages: List[ManagedMessage] = Field(default_factory=list)
 	total_tokens: int = 0
-
-	# def add_message(self, message: BaseMessage, metadata: MessageMetadata) -> None:
-	# 	"""Add a message with metadata"""
-	# 	self.messages.append(ManagedMessage(message=message, metadata=metadata))
-	# 	self.total_tokens += metadata.input_tokens
+	
 	def add_message(self, message: BaseMessage, metadata: MessageMetadata, position: int | None = None) -> None:
 		"""Add message with metadata to history"""
 		if position is None:

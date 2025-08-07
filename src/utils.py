@@ -2,18 +2,10 @@ import logging
 import time
 from functools import wraps
 from typing import Any, Callable, Coroutine, ParamSpec, TypeVar
-import oss2
-import os
-from oss2 import Auth,Bucket
-from io import BytesIO
-from datetime import datetime
 logger = logging.getLogger(__name__)
 
-
-# Define generic type variables for return type and parameters
 R = TypeVar('R')
 P = ParamSpec('P')
-
 
 def time_execution_sync(additional_text: str = '') -> Callable[[Callable[P, R]], Callable[P, R]]:
 	def decorator(func: Callable[P, R]) -> Callable[P, R]:
@@ -28,7 +20,6 @@ def time_execution_sync(additional_text: str = '') -> Callable[[Callable[P, R]],
 		return wrapper
 
 	return decorator
-
 
 def time_execution_async(
 	additional_text: str = '',
@@ -45,15 +36,3 @@ def time_execution_async(
 		return wrapper
 
 	return decorator
-
-
-def singleton(cls):
-	instance = [None]
-	def wrapper(*args, **kwargs):
-		if instance[0] is None:
-			instance[0] = cls(*args, **kwargs)
-		return instance[0]
-
-	return wrapper
-
-

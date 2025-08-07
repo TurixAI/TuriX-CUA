@@ -1,10 +1,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
 from typing import List, Optional, Type
-
-from langchain_anthropic import ChatAnthropic
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import (
 	AIMessage,
@@ -13,7 +10,6 @@ from langchain_core.messages import (
 	ToolMessage,
 )
 from langchain_openai import ChatOpenAI
-
 from src.agent.message_manager.views import MessageHistory, MessageMetadata
 from src.agent.prompts import AgentMessagePrompt, SystemPrompt
 from src.agent.views import ActionResult, AgentOutput, AgentStepInfo
@@ -31,7 +27,6 @@ class MessageManager:
 		max_input_tokens: int = 32000,
 		estimated_tokens_per_character: int = 3,
 		image_tokens: int = 800,
-		include_attributes: list[str] = [],
 		max_error_length: int = 400,
 		max_actions_per_step: int = 5,
 	):
@@ -43,19 +38,16 @@ class MessageManager:
 		self.action_descriptions = action_descriptions
 		self.ESTIMATED_TOKENS_PER_CHARACTER = estimated_tokens_per_character
 		self.IMG_TOKENS = image_tokens
-		self.include_attributes = include_attributes
 		self.max_error_length = max_error_length
 
-		# Use the updated SystemPrompt with our explicit JSON instructions.
 		system_message = self.system_prompt_class(
 			self.action_descriptions,
-			# current_date=datetime.now(),
 			max_actions_per_step=max_actions_per_step,
 		).get_system_message()
 
 		self._add_message_with_tokens(system_message)
 		self.system_prompt = system_message
-		task_message = HumanMessage(task)
+		task_message = self.task_instructions(task)
 		self._add_message_with_tokens(task_message)
 		self.tool_id = 1
 		tool_calls = [
@@ -89,13 +81,17 @@ class MessageManager:
 		self._add_message_with_tokens(tool_message)
 		self.tool_id += 1
 
+	@staticmethod
+	def task_instructions(task: str) -> HumanMessage:
+		content = f'{task}. You should follow each step and evaluate the result of each step.'
+		return HumanMessage(content=content)
+
 	def add_state_message(
 		self,
 		state_content: list,
 		result: Optional[List[ActionResult]] = None,
 		step_info: Optional[AgentStepInfo] = None,
 	) -> None:
-		"""Add browser state as human message"""
 
 		if result:
 			for r in result:
@@ -111,7 +107,6 @@ class MessageManager:
 		state_message = AgentMessagePrompt(
 			state_content,
 			result,
-			include_attributes=self.include_attributes,
 			max_error_length=self.max_error_length,
 			step_info=step_info,
 		).get_user_message()
@@ -120,10 +115,10 @@ class MessageManager:
 	def _remove_last_state_message(self) -> None:
 		while len(self.history.messages) > 2 and isinstance(self.history.messages[-1].message, HumanMessage):
 			self.history.remove_message()
+
 	def _remove_last_AIntool_message(self) -> None:
 		while len(self.history.messages) > 2 and (isinstance(self.history.messages[-1].message, AIMessage) or isinstance(self.history.messages[-1].message, ToolMessage)):
 			self.history.remove_message()
-		
 
 	def add_model_output(self, model_output: AgentOutput) -> None:
 		tool_calls = [
@@ -147,11 +142,6 @@ class MessageManager:
 		)
 		self._add_message_with_tokens(tool_message)
 		self.tool_id += 1
-	
-	def add_plan(self, plan: Optional[str], position: int | None = None) -> None:
-		if plan:
-			msg = AIMessage(content=plan)
-			self._add_message_with_tokens(msg,position)
 
 	def get_messages(self) -> List[BaseMessage]:
 		msg = [m.message for m in self.history.messages]
@@ -172,7 +162,6 @@ class MessageManager:
 	def _count_text_tokens(self, text: str) -> int:
 		"""Enhanced token counter with multi-modal support"""
 		if '<image>' in text:
-			# Handle image token allocation with parent class fallback
 			return self.IMG_TOKENS + super()._count_text_tokens(text.replace('<image>',''))
 		return super()._count_text_tokens(text)
 
@@ -180,23 +169,19 @@ class MessageManager:
 		"""Counts tokens for multi-modal messages including images"""
 		tokens = 0
 		
-		# Handle structured content (list of content blocks)
 		if isinstance(message.content, list):
 			for item in message.content:
 				if isinstance(item, dict) and 'image_url' in item:
-					# Handle image token calculation
 					tokens += self._count_image_tokens(item['image_url'])
 				elif 'text' in item:
 					tokens += self._count_text_tokens(item['text'])
 		
-		# Handle simple text content with potential image markers
 		else:
 			if '<image>' in message.content:
 				tokens += self._handle_embedded_images(message.content)
 			else:
 				tokens += self._count_text_tokens(message.content)
 		
-		# Count tool calls if present
 		if hasattr(message, 'tool_calls'):
 			tokens += self._count_text_tokens(str(message.tool_calls))
 		
@@ -205,18 +190,15 @@ class MessageManager:
 	def _count_image_tokens(self, image_url: dict) -> int:
 		"""Calculate tokens for images based on OpenAI's token rules"""
 		if not isinstance(self.llm, ChatOpenAI):
-			return self.IMG_TOKENS  # Default for other models
-		
+			return self.IMG_TOKENS 
 		detail = image_url.get('detail', 'low')
 		
 		if detail == 'low':
-			return 85  # Fixed token cost for low-res images
+			return 85  
 		
-		# High-detail calculation (512x512 tiles)
 		width = image_url.get('width', 0)
 		height = image_url.get('height', 0)
 		
-		# Resize logic
 		scaled_width, scaled_height = self._resize_dimensions(width, height)
 		tile_count = ((scaled_width + 511) // 512) * ((scaled_height + 511) // 512)
 		return 85 + (tile_count * 170)

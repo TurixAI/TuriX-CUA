@@ -2,10 +2,11 @@ import asyncio, traceback, sys, os, logging
 from fastmcp import FastMCP
 from src.agent.service import Agent
 from langchain_openai import ChatOpenAI
+
 logging.basicConfig(
-    level=logging.DEBUG,
-    format='[%(asctime)s] %(levelname)-8s %(message)s',
-    handlers=[logging.StreamHandler(sys.stderr)]
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    stream=sys.stderr,
 )
 
 def build_llm_from_env():
@@ -15,7 +16,6 @@ def build_llm_from_env():
     """
     provider = os.getenv("LLM_PROVIDER", "openai").lower()
 
-    # Common knobs ─────────────────────────────────────────
     model       = os.getenv("LLM_MODEL",  "gpt-4o-mini")
     temperature = float(os.getenv("LLM_TEMP", "0"))
     api_base    = os.getenv("OPENAI_API_BASE", "https://api.openai.com/v1")
@@ -82,7 +82,7 @@ async def run_task(task: str) -> str:
 
     try:
         result = await asyncio.wait_for(
-            agent.run_MCP(max_steps=30),
+            agent.run_MCP(max_steps=40),
             timeout=TIMEOUT_S,
         )
         return result

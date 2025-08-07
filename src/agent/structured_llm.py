@@ -16,15 +16,9 @@ Example
 >>> structured_llm.invoke("Open TextEdit, type 'Hello', then save the file.")
 AgentStepOutput(...)
 """
-import re
-import json
-from typing import List, Optional, Dict, Any, Union
+from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field, ConfigDict, field_validator
 from src.controller.views import *
-from pydantic.v1 import validator
-# ---------------------------------------------------------------------------
-# DISCRIMINATED UNION FOR A SINGLE ACTION ITEM
-# ---------------------------------------------------------------------------
 
 class ActionItem(BaseModel):
     """Exactly one of the fields must be populated to specify the concrete action."""
@@ -52,36 +46,26 @@ class ActionItem(BaseModel):
     @field_validator("wait", "record_info", mode="before")
     def fix_empty_string(cls, v):
         if v == "" or v is None:
-            return {}             # an empty dict is valid input for NoParamsAction
+            return {}
         if not isinstance(v, dict):
             return {}
         return v
-
-# ---------------------------------------------------------------------------
-# CURRENT‑STATE SUB‑MODEL
-# ---------------------------------------------------------------------------
 
 class CurrentState(BaseModel):
     evaluation_previous_goal: str = Field(..., description="Evaluation of the previous goal execution.")
     next_goal: str = Field(..., description="The immediate next goal for the agent.")
     information_stored: str = Field(..., description="Information to remember.")
 
-
-# ---------------------------------------------------------------------------
-# AGENT STEP OUTPUT (MAIN MODEL)
-# ---------------------------------------------------------------------------
-
 class AgentStepOutput(BaseModel):
     """Schema for the agent's per‑step output.
 
     - ``action``: list of actions the agent should perform in order. Multiple actions
       are allowed in a single step.
-    - ``current_state``: diagnostic information that supervisors/evaluators can use.
     """
     action: List[ActionItem] = Field(
         ...,
         min_items=0,
-        max_items=10,                     # ← hard limit
+        max_items=10,
         description="Ordered list of 0-10 actions for this step."
     )
     current_state: CurrentState

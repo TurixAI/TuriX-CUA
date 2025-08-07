@@ -18,8 +18,6 @@ Join our Discord community for support, discussions, and updates:
 
 Or contact us with email: contact@turix.ai
 
----
-
 TuriX lets your powerful AI models take real, hands‑on actions directly on your desktop. 
 It ships with a **state‑of‑the‑art computer‑use agent** (passes > 68 % of our internal OSWorld‑style test set) yet stays 100 % open‑source and cost‑free for personal & research use.  
 
@@ -30,11 +28,14 @@ Prefer your own model? **Change in `config.json` and go.**
 - [🖼️ Demos](#️-demos)
 - [✨ Key Features](#-key-features)
 - [📊 Model Performance](#-model-performance)
-- [🚀 Quick‑Start (Windows)](#-quickstart-windos)
+- [🚀 Quick‑Start (macOS 15)](#-quickstart-macos-15)
    - [1. Download the App](#1-download-the-app)
    - [2. Create a Python 3.12 Environment](#2-create-a-python-312-environment)
-   - [3. Configure & Run](#3-configure--run)
-   - [4. MCP Support](#4-mcp-support)
+   - [3. Grant macOS Permissions](#3-grant-macos-permissions)
+      - [3.1 Accessibility](#31-accessibility)
+      - [3.2 Safari Automation](#32-safari-automation)
+   - [4. Configure & Run](#4-configure--run)
+   - [5. MCP Support](#5-mcp-support)
 - [🤝 Contributing](#-contributing)
 - [🗺️ Roadmap](#️-roadmap)
 
@@ -85,21 +86,21 @@ Our agent achieves state-of-the-art performance on desktop automation tasks:
 
 For more details, check our [report](https://turix.ai/technical-report/).
 
-## 🚀 Quick‑Start (Windows)
+## 🚀 Quick‑Start (macOS 15)
 
 > **We never collect data**—install, grant permissions, and hack away.
 
-> **0. Mac Users**: Switch to the `main` branch for MacOS-specific setup and installation instructions.
+> **0. Windows Users**: Switch to the `windows` branch for Windows-specific setup and installation instructions (Coming Soon🚀).
 >
 > ```bash
-> git checkout main
+> git checkout windows
 > ```
 
-### 1. Download the App
-For easier MacOS usage, [download the app](https://turix.ai/)
-The app only works for Mac!!!
 
-For Windows usage, follow the manual setup below:
+### 1. Download the App
+For easier usage, [download the app](https://turix.ai/)
+
+Or follow the manual setup below:
 
 ### 2. Create a Python 3.12 Environment
 Firstly Clone the repository and run:
@@ -109,27 +110,49 @@ conda activate turix_env        # requires conda ≥ 22.9
 pip install -r requirements.txt
 ```
 
-> **Click "Allow" on every dialog** so the agent can run.
+### 3. Grant macOS Permissions
 
-### 3. Configure & Run
+#### 3.1 Accessibility
+1. Open **System Settings ▸ Privacy & Security ▸ Accessibility**  
+2. Click **＋**, then add **Terminal** and **Visual Studio Code** ANY IDE you use
+3. If the agent still fails, also add **/usr/bin/python3**
 
-#### 3.1 Edit Task Configuration
+#### 3.2 Safari Automation
+1. **Safari ▸ Settings ▸ Advanced** → enable **Show features for web developers**  
+2. In the new **Develop** menu, enable  
+    * **Allow Remote Automation**  
+    * **Allow JavaScript from Apple Events**  
 
-Edit task in `examples/config.json`:
+##### Trigger the Permission Dialogs (run once per shell)
+```
+# macOS Terminal
+osascript -e 'tell application "Safari" \
+to do JavaScript "alert(\"Triggering accessibility request\")" in document 1'
+
+# VS Code integrated terminal (repeat to grant VS Code)
+osascript -e 'tell application "Safari" \
+to do JavaScript "alert(\"Triggering accessibility request\")" in document 1'
+```
+
+> **Click "Allow" on every dialog** so the agent can drive Safari.
+
+### 4. Configure & Run
+
+#### 4.1 Edit Task Configuration
 
 > [!IMPORTANT]
 > **Task Configuration is Critical**: The quality of your task instructions directly impacts success rate. Clear, specific prompts lead to better automation results.
 
+Edit task in `examples/config.json`:
 ```json
 {
     "agent": {
-         "task": "open Chrome, go to github, search for TuriX CUA, enter the TuriX repository, and star this repository. "
+         "task": "open system settings, switch to Dark Mode"
     }
 }
 ```
-There is no use_ui parameter in the windows version, the state is only a screenshot.
 
-#### 3.2 Edit API Configuration
+#### 4.2 Edit API Configuration
 
 Get the key for free from our [official web page](https://www.turix.ai).
 Login to our website and the key is at the bottom.
@@ -139,11 +162,11 @@ Edit API in `examples/config.json`:
 "llm": {
       "provider": "turix",
       "api_key": "YOUR_API_KEY",
-      "base_url": "https://llm.turixapi.io/v1"
+      "base_url": "YOUR_BASE_URL"
    }
 ```
 
-#### 3.3 Configure Custom Models (Optional)
+#### 4.3 Configure Custom Models (Optional)
 
 If you want to use other models not defined by the build_llm function in the main.py, you need to first define it, then setup the config.
 
@@ -157,7 +180,7 @@ if provider == "name_you_want":
 ```
 Switch between ChatOpenAI, ChatGoogleGenerativeAI and ChatAnthropic base on your llm. Also change the model name.
 
-#### 3.4 Start the Agent
+#### 4.4 Start the Agent
 
 ```bash
 python examples/main.py
@@ -165,7 +188,7 @@ python examples/main.py
 
 **Enjoy hands‑free computing 🎉**
 
-### 4. MCP Support
+### 5. MCP Support
 
 TuriX support [Model Context Protocol](https://modelcontextprotocol.io/overview). You can use Claude for Desktop to call TuriX as a MCP Server with the following configuration(assume you have turix_env conda env): 
 ```json
@@ -174,7 +197,7 @@ TuriX support [Model Context Protocol](https://modelcontextprotocol.io/overview)
     "mcp_agent": {
       "command": "/ABSOLUTE/PATH/TO/YOUR/CONDA/ENV/bin/python",
       "args": [
-         "/ABSOLUTE/PATH/TO/FOLDER/TuriX-CUA/Windows_mcp_server.py"
+        "/ABSOLUTE/PATH/TO/FOLDER/TuriX-CUA/mcp_server.py"
       ],
       "env": {
         "LLM_PROVIDER": "turix",
@@ -190,22 +213,21 @@ TuriX support [Model Context Protocol](https://modelcontextprotocol.io/overview)
 ```
 You can also setup your llm model by change the env in the json file. MCP_TIMEOUT_SEC is the time limit, if the task running time larger than the setting value, the task will be terminated.
 
-If you wanna terminate the agent while running, press ctrl+shift+2.
+If you wanna terminate the agent while running, press cmd+shift+2.
 
 ## 🤝 Contributing
 
-We welcome contributions! Please read our [Contributing Guide](CONTRIBUTING.md) to get started.
+We welcome contributions! Please read our [Contributing Guide](CONTRIBUTING.MD) to get started.
 
 Quick links:
-- [Development Setup](CONTRIBUTING.md#development-setup)
-- [Code Style Guidelines](CONTRIBUTING.md#code-style-guidelines)
-- [Testing](CONTRIBUTING.md#testing)
-- [Pull Request Process](CONTRIBUTING.md#pull-request-process)
+- [Development Setup](CONTRIBUTING.MD#development-setup)
+- [Code Style Guidelines](CONTRIBUTING.MD#code-style-guidelines)
+- [Testing](CONTRIBUTING.MD#testing)
+- [Pull Request Process](CONTRIBUTING.MD#pull-request-process)
 
 For bug reports and feature requests, please [open an issue](https://github.com/TurixAI/TuriX-CUA/issues).
 
 ## 🗺️ Roadmap
-
 | Quarter | Feature | Description |
 |---------|---------|-------------|
 | **2025 Q3** | **✅ Windows Support** | Cross-platform compatibility bringing TuriX automation to Windows environments *(Now Available)* |

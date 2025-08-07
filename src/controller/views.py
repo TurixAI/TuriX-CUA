@@ -1,10 +1,7 @@
-from typing import Literal, Optional
-
+from typing import Optional
 from typing import List
 from pydantic import BaseModel, Field
 from src.controller.registry.views import ActionModel
-# mlx-use actions 
-
 
 class DoneAction(BaseModel):
 	text: str
@@ -36,7 +33,6 @@ class MoveToAction(BaseModel):
 	position: List[float] = Field(..., description="Coordinates (normalised) [x,y]")
 
 class LeftClickPixel(BaseModel):
-    # Provide item type (int). You can also enforce a 2-length list by min_items/max_items if desired.
     position: List[float] = Field(..., description="Coordinates (normalised) [x,y]")
 
 class RightClickPixel(BaseModel):
