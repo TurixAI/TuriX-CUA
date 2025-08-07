@@ -33,7 +33,7 @@ Prefer your own model? **Change in `config.json` and go.**
 - [🚀 Quick‑Start (macOS 15)](#-quickstart-macos-15)
    - [1. Download the App](#1-download-the-app)
    - [2. Create a Python 3.12 Environment](#2-create-a-python-312-environment)
-   - [3. Configure & Run](#4-configure--run)
+   - [3. Configure & Run](#3-configure--run)
 - [🤝 Contributing](#-contributing)
 - [🗺️ Roadmap](#️-roadmap)
 
