@@ -197,7 +197,7 @@ TuriX support [Model Context Protocol](https://modelcontextprotocol.io/overview)
     "mcp_agent": {
       "command": "/ABSOLUTE/PATH/TO/YOUR/CONDA/ENV/bin/python",
       "args": [
-        "/ABSOLUTE/PATH/TO/FOLDER/TuriX-CUA/mcp_server.py"
+        "/ABSOLUTE/PATH/TO/FOLDER/TuriX-CUA/src/mcp/mcp_server.py"
       ],
       "env": {
         "LLM_PROVIDER": "turix",
