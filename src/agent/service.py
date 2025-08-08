@@ -7,9 +7,8 @@ import logging
 import os
 import uuid
 from pathlib import Path
-import Quartz
 from typing import Any, Callable, Dict, List, Optional, Type, TypeVar
-import re
+from pynput import keyboard
 from dotenv import load_dotenv
 from langchain_core.language_models.chat_models import BaseChatModel
 from typing import Type
@@ -22,7 +21,6 @@ from langchain_core.messages import (
     BaseMessage,
 )
 
-from lmnr import observe
 from datetime import datetime
 from openai import RateLimitError
 from PIL import Image, ImageDraw, ImageFont
@@ -134,6 +132,7 @@ class Agent:
         register_done_callback: Callable[['AgentHistoryList'], None] | None = None,
         tool_calling_method: Optional[str] = 'auto',
         agent_id: Optional[str] = None,
+        running_mcp: bool = False,
     ):
         self.current_time = datetime.now()
         self.agent_id = agent_id or str(uuid.uuid4())
@@ -158,6 +157,7 @@ class Agent:
         self.max_actions_per_step = max_actions_per_step
         self.last_step_action = None
         self.goal_action_memory = OrderedDict()
+        self.running_mcp = running_mcp
 
         self.last_goal = None
         if not self.use_turix:
@@ -310,7 +310,8 @@ class Agent:
                 # self.screenshot_annotated = annotated_screenshot or screenshot
                 self.screenshot_annotated = screenshot # Use annotated screenshot if you like
                 # delete the local save later
-                screenshot.save(f'images/screenshot_{self.n_steps}.png')
+                if not self.running_mcp:
+                    screenshot.save(f'images/screenshot_{self.n_steps}.png')
                 if self.use_ui:
                     state_content = [
                         {
@@ -338,7 +339,8 @@ class Agent:
             else:
                 screenshot = self.mac_tree_builder.capture_screenshot()
                 self.screenshot_annotated = screenshot
-                screenshot.save(f'images/screenshot_{self.n_steps}.png')
+                if not self.running_mcp:
+                    screenshot.save(f'images/screenshot_{self.n_steps}.png')
                 state_content = [
                     {
                         "type": "text",
@@ -601,3 +603,43 @@ class Agent:
             max_error_length=self.max_error_length,
             max_actions_per_step=self.max_actions_per_step,
         )
+
+    async def run_MCP(self, max_steps: int = 100) -> str:
+        """ Run the MCP agent with a maximum number of steps."""
+        # Set up a hotkey listener to stop the agent
+        # if you want to stop the agent manually, press cmd+shift+2
+        terminate_event = asyncio.Event()
+        loop = asyncio.get_running_loop()
+
+        def _on_hotkey():
+            loop.call_soon_threadsafe(terminate_event.set)
+
+        hotkey_listener = keyboard.GlobalHotKeys({
+            '<cmd>+<shift>+2': _on_hotkey
+        })
+        hotkey_listener.start()
+        try:
+            for step in range(1,max_steps+1):
+                await asyncio.sleep(0)
+                if self.resume:
+                    self.load_memory()
+                    self.resume = False
+                if self._too_many_failures():
+                    return "Too many consecutive failures, stopping the agent."
+
+                if not await self._handle_control_flags():
+                    break
+
+                if terminate_event.is_set():
+                    return "User terminate the agent"
+
+                await self.step()
+
+                if self.histories.is_done():
+                    return "Task completed successfully"
+                
+            return "Failed to complete task"
+        except Exception:
+            raise
+        finally:
+            hotkey_listener.stop()
