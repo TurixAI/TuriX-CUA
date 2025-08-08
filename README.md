@@ -35,6 +35,7 @@ Prefer your own model? **Change in `config.json` and go.**
       - [3.1 Accessibility](#31-accessibility)
       - [3.2 Safari Automation](#32-safari-automation)
    - [4. Configure & Run](#4-configure--run)
+   - [5. MCP Support](#5-mcp-support)
 - [🤝 Contributing](#-contributing)
 - [🗺️ Roadmap](#️-roadmap)
 
@@ -161,7 +162,7 @@ Edit API in `examples/config.json`:
 "llm": {
       "provider": "turix",
       "api_key": "YOUR_API_KEY",
-      "base_url": "https://llm.turixapi.io/v1"
+      "base_url": "YOUR_BASE_URL"
    }
 ```
 
@@ -186,6 +187,33 @@ python examples/main.py
 ```
 
 **Enjoy hands‑free computing 🎉**
+
+### 5. MCP Support
+
+TuriX support [Model Context Protocol](https://modelcontextprotocol.io/overview). You can use Claude for Desktop to call TuriX as a MCP Server with the following configuration(assume you have turix_env conda env): 
+```json
+{
+  "mcpServers": {
+    "mcp_agent": {
+      "command": "/ABSOLUTE/PATH/TO/YOUR/CONDA/ENV/bin/python",
+      "args": [
+        "/ABSOLUTE/PATH/TO/FOLDER/TuriX-CUA/src/mcp/mcp_server.py"
+      ],
+      "env": {
+        "LLM_PROVIDER": "turix",
+        "LLM_MODEL":   "turix-model",
+        "LLM_TEMP":    "0",
+        "OPENAI_API_KEY":  "YOUR_KEY_HERE",
+        "OPENAI_API_BASE": "YOUR_BASE_URL",
+        "MCP_TIMEOUT_SEC": "600"
+      }
+    }
+  }
+}
+```
+You can also setup your llm model by change the env in the json file. MCP_TIMEOUT_SEC is the time limit, if the task running time larger than the setting value, the task will be terminated.
+
+If you wanna terminate the agent while running, press cmd+shift+2.
 
 ## 🤝 Contributing
 
