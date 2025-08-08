@@ -9,6 +9,7 @@ import uuid
 import pyautogui
 from pynput import keyboard
 from pathlib import Path
+import re
 from typing import Any, Callable, Dict, List, Optional, Type, TypeVar
 from pynput import keyboard
 from dotenv import load_dotenv
