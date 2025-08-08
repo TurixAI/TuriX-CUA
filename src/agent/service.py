@@ -9,8 +9,8 @@ import uuid
 import pyautogui
 from pynput import keyboard
 from pathlib import Path
-from typing import Any, Optional, Type, TypeVar
-import re
+from typing import Any, Callable, Dict, List, Optional, Type, TypeVar
+from pynput import keyboard
 from dotenv import load_dotenv
 from langchain_core.language_models.chat_models import BaseChatModel
 from typing import Type
@@ -102,6 +102,7 @@ class Agent:
         max_actions_per_step: int = 10,
         tool_calling_method: Optional[str] = 'auto',
         agent_id: Optional[str] = None,
+        running_mcp: bool = False,
     ):
         self.agent_id = agent_id or str(uuid.uuid4())
         self.task = task
@@ -121,6 +122,7 @@ class Agent:
         self.last_step_action = None
         self.goal_action_memory = OrderedDict()
         self.long_goal_action_memory = OrderedDict()
+        self.running_mcp = running_mcp
 
         self.last_goal = None
         self.system_prompt_class = system_prompt_class
@@ -234,22 +236,45 @@ class Agent:
             
             if self.n_steps >= 2:
                 self.previous_screenshot = self.screenshot_annotated
-                screenshot = self.capture_screenshot()
-                self.screenshot_annotated = screenshot
-                state_content = [
-                    {
-                        "type": "text",
-                        "content": f"The previous action is evaluated to be successful.\n\n Saved information memory: {self.infor_memory}\n\n"
-                        f"{self.short_memory}"
-                    },
-                    {
-                        "type": "image_url",
-                        "image_url": {"url": screenshot_to_dataurl(self.screenshot_annotated)},
-                    }
-                ]
+                screenshot = self.mac_tree_builder.capture_screenshot()
+                if self.use_ui:
+                    annotated_screenshot = self.mac_tree_builder.annotate_screenshot(root)
+                    screenshot_filename = f'images/screenshot_to_use_{self.n_steps}.png'
+                    annotated_screenshot.save(screenshot_filename) 
+                # self.screenshot_annotated = annotated_screenshot or screenshot
+                self.screenshot_annotated = screenshot # Use annotated screenshot if you like
+                # delete the local save later
+                if not self.running_mcp:
+                    screenshot.save(f'images/screenshot_{self.n_steps}.png')
+                if self.use_ui:
+                    state_content = [
+                        {
+                            "type": "text",
+                            "content": f"State is: {state}\n\n The previous action is evaluated to be successful.\n\n Saved information memory: {self.infor_memory}\n\n"
+                            f"{self.short_memory}"
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": screenshot_to_dataurl(self.screenshot_annotated)},
+                        }
+                    ]
+                else:
+                    state_content = [
+                        {
+                            "type": "text",
+                            "content": f"The previous action is evaluated to be successful.\n\n Saved information memory: {self.infor_memory}\n\n"
+                            f"{self.short_memory}"
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": screenshot_to_dataurl(self.screenshot_annotated)},
+                        }
+                    ]
             else:
                 screenshot = self.capture_screenshot()
                 self.screenshot_annotated = screenshot
+                if not self.running_mcp:
+                    screenshot.save(f'images/screenshot_{self.n_steps}.png')
                 state_content = [
                     {
                         "type": "text",
@@ -475,3 +500,43 @@ class Agent:
             max_error_length=self.max_error_length,
             max_actions_per_step=self.max_actions_per_step,
         )
+
+    async def run_MCP(self, max_steps: int = 100) -> str:
+        """ Run the MCP agent with a maximum number of steps."""
+        # Set up a hotkey listener to stop the agent
+        # if you want to stop the agent manually, press cmd+shift+2
+        terminate_event = asyncio.Event()
+        loop = asyncio.get_running_loop()
+
+        def _on_hotkey():
+            loop.call_soon_threadsafe(terminate_event.set)
+
+        hotkey_listener = keyboard.GlobalHotKeys({
+            '<cmd>+<shift>+2': _on_hotkey
+        })
+        hotkey_listener.start()
+        try:
+            for step in range(1,max_steps+1):
+                await asyncio.sleep(0)
+                if self.resume:
+                    self.load_memory()
+                    self.resume = False
+                if self._too_many_failures():
+                    return "Too many consecutive failures, stopping the agent."
+
+                if not await self._handle_control_flags():
+                    break
+
+                if terminate_event.is_set():
+                    return "User terminate the agent"
+
+                await self.step()
+
+                if self.histories.is_done():
+                    return "Task completed successfully"
+                
+            return "Failed to complete task"
+        except Exception:
+            raise
+        finally:
+            hotkey_listener.stop()

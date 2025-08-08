@@ -78,6 +78,7 @@ async def run_task(task: str) -> str:
         llm=llm,
         short_memory_len=3,
         max_failures=5,
+        running_mcp = True
     )
 
     try:
