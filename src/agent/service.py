@@ -368,8 +368,6 @@ class Agent:
             
             self.last_step_action = [action.model_dump(exclude_unset=True) for action in model_output.action] if model_output else []
             # join the self.state_memory and the self.last_goal
-            self.state_memory[f'Step {self.n_steps}'] = f'Goal: {self.last_goal}'
-            self.state_memory[f'Step {self.n_steps} is'] = '(success)'
 
             result = await self.controller.multi_act(
                 model_output.action,
@@ -385,7 +383,9 @@ class Agent:
                         logger.debug(f'Found open_app action, building the tree again')
                         await self.mac_tree_builder.build_tree(self.get_last_pid())
 
-            if self.last_step_action:
+            if self.last_step_action and 'wait' not in self.last_step_action[0]:
+                self.state_memory[f'Step {self.n_steps}'] = f'Goal: {self.last_goal}'
+                self.state_memory[f'Step {self.n_steps} is'] = '(success)'
                 self.goal_action_memory[f'Step {self.n_steps}'] = f'Goal: {self.last_goal}, Actions: {self.last_step_action}'
                 self.goal_action_memory[f'Step {self.n_steps} is'] = f'(success)'
 
