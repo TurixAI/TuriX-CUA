@@ -279,8 +279,6 @@ class Agent:
 
             self.last_step_action = [action.model_dump(exclude_unset=True) for action in model_output.action] if model_output else []
 
-            self.state_memory[f'Step {self.n_steps}'] = f'Goal: {self.last_goal}'
-            self.state_memory[f'Step {self.n_steps} is'] = f'({self.evaluation})'
 
             result = await self.controller.multi_act(
                 model_output.action
@@ -288,7 +286,9 @@ class Agent:
             self._last_result = result
             if information_stored != 'None':
                 self.infor_memory.append({f'Step {self.n_steps}, the information stored is: {information_stored}'})
-            if self.last_step_action:
+            if self.last_step_action and 'wait' not in str(self.last_step_action[0]):
+                self.state_memory[f'Step {self.n_steps}'] = f'Goal: {self.last_goal}'
+                self.state_memory[f'Step {self.n_steps} is'] = f'({self.evaluation})'
                 self.goal_action_memory[f'Step {self.n_steps}'] = f'Goal: {self.last_goal}, Actions: {self.last_step_action}'
                 self.goal_action_memory[f'Step {self.n_steps} is'] = f'({self.evaluation})'
                 self.long_goal_action_memory[f'Step {self.n_steps}'] = f'Goal: {self.last_goal}, Actions: {self.last_step_action}'
