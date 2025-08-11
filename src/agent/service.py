@@ -3,7 +3,7 @@ import asyncio
 import base64
 import io
 import json
-import logging,sys
+import logging
 import os
 import uuid
 import pyautogui
@@ -24,7 +24,10 @@ from langchain_core.messages import BaseMessage
 from openai import RateLimitError
 from pydantic import BaseModel, ValidationError
 from src.agent.message_manager.service import MessageManager
-from src.agent.prompts import SystemPrompt
+from src.agent.prompts import (
+    SystemPrompt_turix,
+    SystemPrompt,
+)
 from src.agent.views import (
     ActionResult,
     AgentError,
@@ -35,6 +38,7 @@ from src.agent.views import (
     AgentBrain
 )
 from src.controller.service import Controller
+from src.mac.tree import MacUITreeBuilder
 from src.utils import time_execution_async
 from src.agent.output_schemas import OutputSchemas
 from src.agent.structured_llm import *
@@ -91,6 +95,8 @@ class Agent:
         llm: BaseChatModel,
         short_memory_len : int,
         controller: Controller = Controller(),
+        use_ui: bool = False,
+        use_turix: bool = True,
         save_conversation_path: Optional[str] = None,
         save_conversation_path_encoding: Optional[str] = 'utf-8',
         save_memory_encoding: Optional[str] = 'utf-8',
@@ -105,32 +111,36 @@ class Agent:
         agent_id: Optional[str] = None,
         running_mcp: bool = False,
     ):
+        self.wait_this_step = False
         self.agent_id = agent_id or str(uuid.uuid4())
         self.task = task
         self.resume = resume
         self.llm = to_structured(llm, OutputSchemas.AGENT_RESPONSE_FORMAT, AgentStepOutput)
+        self.use_turix = use_turix
         self.save_conversation_path = save_conversation_path
         self.save_conversation_path_encoding = save_conversation_path_encoding
-        self.save_momery_encoding = save_memory_encoding
+        self.save_memory_encoding = save_memory_encoding
         self.max_error_length = max_error_length
         self.screenshot_annotated = None
         self.short_memory_len = short_memory_len
         self.max_input_tokens = max_input_tokens
         self.save_temp_file_path = os.path.join(os.path.dirname(__file__), 'temp_files')
         self.previous_screenshot = None
+        self.use_ui = use_ui
+        self.mac_tree_builder = MacUITreeBuilder()
         self.controller = controller
         self.max_actions_per_step = max_actions_per_step
         self.last_step_action = None
         self.goal_action_memory = OrderedDict()
-        self.long_goal_action_memory = OrderedDict()
         self.running_mcp = running_mcp
 
         self.last_goal = None
-        self.system_prompt_class = system_prompt_class
+        if not self.use_turix:
+            self.system_prompt_class = system_prompt_class
+        else:
+            self.system_prompt_class = SystemPrompt_turix
         self.state_memory = OrderedDict()
         self.status = "success"
-        self.fail_msg = ""
-        self.analysis = ""
         self._setup_action_models()
         self._set_model_names()
         self.tool_calling_method = self.set_tool_calling_method(tool_calling_method)
@@ -144,9 +154,8 @@ class Agent:
         self._paused = False      # for pausing the agent(save and load memory)
         self._stopped = False     # for stopping the agent
         self.short_memory = ''
-        self.long_memory = ''
         self.infor_memory = []
-        self.ask_for_help = False
+        self.last_pid = None
 
         if self.resume and not agent_id:
             raise ValueError("Agent ID is required for resuming a task.")
@@ -169,18 +178,13 @@ class Agent:
         self.ActionModel = self.controller.registry.create_action_model()
         self.AgentOutput = AgentOutput.type_with_custom_actions(self.ActionModel)
     
-    def capture_screenshot(self):
-        """Capture a screenshot of the current screen"""
-        try:
-            screenshot = pyautogui.screenshot()
-            screenshot.thumbnail((screenshot.width // 2, screenshot.height // 2))
-            return screenshot
-        except Exception as e:
-            logger.error(f"Failed to capture screenshot: {e}")
-            return None
-        
-    def check_action(self, state, actions):
-        return True
+    def get_last_pid(self) -> Optional[int]:
+        latest_pid = self.last_pid
+        if self._last_result:
+            for r in self._last_result:
+                if r.current_app_pid:
+                    latest_pid = r.current_app_pid
+        return latest_pid
 
     def save_memory(self) -> None:
         """
@@ -189,16 +193,16 @@ class Agent:
         if not self.save_temp_file_path:
             return
         data = {
+            "pid": self.get_last_pid(),
             "task": self.task,
             "short_memory": self.short_memory,
-            "long_memory": self.long_memory,
             "infor_memory": self.infor_memory,
             "state_memory": self.state_memory,
             "step": self.n_steps
         }
         file_name = os.path.join(self.save_temp_file_path, f"memory.jsonl")
         os.makedirs(os.path.dirname(file_name), exist_ok=True) if os.path.dirname(file_name) else None
-        with open(file_name, "w", encoding=self.save_momery_encoding) as f:
+        with open(file_name, "w", encoding=self.save_memory_encoding) as f:
             if os.path.getsize(file_name) > 0:
                 f.truncate(0)
             f.write(json.dumps(data, ensure_ascii=False, default=lambda o: list(o) if isinstance(o, set) else o) + "\n")
@@ -211,12 +215,12 @@ class Agent:
             return
         file_name = os.path.join(self.save_temp_file_path, f".jsonl")
         if os.path.exists(file_name):
-            with open(file_name, "r", encoding=self.save_momery_encoding) as f:
+            with open(file_name, "r", encoding=self.save_memory_encoding) as f:
                 lines = f.readlines()
             if len(lines) >= 1:
                 data = json.loads(lines[-1])
+                self.last_pid = data.get("pid", None)
                 self.short_memory = data.get("short_memory", [])
-                self.long_memory = data.get("long_memory", [])
                 self.infor_memory = data.get("infor_memory", [])
                 self.state_memory = data.get("state_memory", None)
                 self.n_steps = data.get("step", 1)
@@ -228,7 +232,14 @@ class Agent:
         logger.info(f"step {self.n_steps} started")
 
         try:
-            state = ''
+            logger.debug(f'Last PID: {self.last_pid}')
+            if self.use_ui:
+                self.last_pid = self.get_last_pid()
+                root = await self.mac_tree_builder.build_tree(self.last_pid)
+            # if root and self.use_ui:
+                state = root._get_visible_clickable_elements_string() if root else "No UI tree found."
+            else:
+                state = ''
             if self.n_steps == 1:
                 apps = _get_installed_app_names()
                 app_list = ', '.join(apps)
@@ -272,7 +283,7 @@ class Agent:
                         }
                     ]
             else:
-                screenshot = self.capture_screenshot()
+                screenshot = self.mac_tree_builder.capture_screenshot()
                 self.screenshot_annotated = screenshot
                 if not self.running_mcp:
                     screenshot.save(f'images/screenshot_{self.n_steps}.png')
@@ -300,26 +311,35 @@ class Agent:
             
             self.last_step_action = [action.model_dump(exclude_unset=True) for action in model_output.action] if model_output else []
 
-            self.state_memory[f'Step {self.n_steps}'] = f'Goal: {self.last_goal}'
-            self.state_memory[f'Step {self.n_steps} is'] = '(success)'
-
             result = await self.controller.multi_act(
-                model_output.action, 
-                action_valid=self.check_action(state, actions=self.last_step_action)
+                model_output.action,
+                self.mac_tree_builder,
+                action_valid=True
             )
             self._last_result = result
             if information_stored != 'None':
                 self.infor_memory.append({f'Step {self.n_steps}, the information stored is: {information_stored}'})
-            if self.last_step_action:
+            if self.use_ui:
+                for i in range(len(model_output.action)):
+                    if 'open_app' in str(model_output.action[i]):
+                        logger.debug(f'Found open_app action, building the tree again')
+                        await self.mac_tree_builder.build_tree(self.get_last_pid())
+            if 'wait' not in str(self.last_step_action[0]):
+                self.wait_this_step = False
+            else:
+                self.wait_this_step = True
+                logger.info(f'This step is a wait action, skipping the memory saving')
+            if self.last_step_action and not self.wait_this_step:
+                self.state_memory[f'Step {self.n_steps}'] = f'Goal: {self.last_goal}'
+                self.state_memory[f'Step {self.n_steps} is'] = '(success)'
                 self.goal_action_memory[f'Step {self.n_steps}'] = f'Goal: {self.last_goal}, Actions: {self.last_step_action}'
                 self.goal_action_memory[f'Step {self.n_steps} is'] = f'(success)'
-                self.long_goal_action_memory[f'Step {self.n_steps}'] = f'Goal: {self.last_goal}, Actions: {self.last_step_action}'
-                self.long_goal_action_memory[f'Step {self.n_steps} is'] = f'(success)'
+
                 if len(self.goal_action_memory) > self.short_memory_len:
                     first_key = next(iter(self.goal_action_memory))
                     del self.goal_action_memory[first_key]
                 self.short_memory = f'The important memory: {self.state_memory}. {self.goal_action_memory}'
-                self.long_memory = f'The important memory: {self.state_memory}. {self.long_goal_action_memory}'
+
         except Exception as e:
             result = await self._handle_step_error(e)
             self._last_result = result
@@ -327,16 +347,17 @@ class Agent:
         finally:
             if result:
                 self._make_history_item(model_output, state, result)
-        self.n_steps += 1
+            if not self.wait_this_step:
+                self.n_steps += 1
 
     async def _handle_step_error(self, error: Exception) -> list[ActionResult]:
         logger.exception(f"[Agent:{self.agent_id}] step {self.n_steps} raised {type(error).__name__}")
-
-        include_trace = True
+        include_trace = logger.isEnabledFor(logging.DEBUG)
         error_msg = AgentError.format_error(error, include_trace=include_trace)
         prefix = f'❌ Result failed {self.consecutive_failures + 1}/{self.max_failures} times:\n '
 
         if isinstance(error, (ValidationError, ValueError)):
+            logger.error(f'{prefix}{error_msg}')
             if 'Max token limit reached' in error_msg:
                 self.agent_message_manager.max_input_tokens -= 500
                 self.agent_message_manager.cut_messages()
@@ -345,10 +366,12 @@ class Agent:
             self.consecutive_failures += 1
 
         elif isinstance(error, RateLimitError):
+            logger.warning(f'{prefix}{error_msg}')
             await asyncio.sleep(self.retry_delay)
             self.consecutive_failures += 1
 
         else:
+            logger.error(f'{prefix}{error_msg}')
             self.consecutive_failures += 1
 
         return [ActionResult(error=error_msg, include_in_memory=True)]
@@ -375,9 +398,7 @@ class Agent:
         response: dict[str, Any] = await self.llm.ainvoke(input_messages)
         record = str(response.content)
 
-        output = re.sub(r"^```(json)?", "", record.strip())
-        output = re.sub(r"```$", "", output).strip()
-        output_dict = json.loads(output) 
+        output_dict = json.loads(record)
         brain = AgentBrain(evaluation_previous_goal=output_dict['current_state']['evaluation_previous_goal'],
                             information_stored=output_dict['current_state']['information_stored'],
                             next_goal=output_dict['current_state']['next_goal'],
@@ -405,9 +426,6 @@ class Agent:
             if response is not None:
                 self._write_response_to_file(f, response)
 
-    # ---------------------------------------------
-    # OPTIONAL: Reuse your existing writer helpers
-    # ---------------------------------------------
     def _write_messages_to_file(self, f: Any, messages: list[BaseMessage]) -> None:
         """
         For each message, write it out in a human-readable format.
@@ -440,45 +458,36 @@ class Agent:
         if self.consecutive_failures >= self.max_failures:
             return True
         return False
+    
+    def _log_agent_run(self) -> None:
+        logger.info(f'🚀 Starting task: {self.task}')
 
-    async def run_MCP(self, max_steps: int = 100) -> str:
-        # Set up a hotkey listener to stop the agent
-        # if you want to stop the agent manually, press cmd+shift+2
-        terminate_event = asyncio.Event()
-        loop = asyncio.get_running_loop()
-
-        def _on_hotkey():
-            loop.call_soon_threadsafe(terminate_event.set)
-
-        hotkey_listener = keyboard.GlobalHotKeys({
-            '<cmd>+<shift>+2': _on_hotkey
-        })
-        hotkey_listener.start()
+    async def run(self, max_steps: int = 100) -> AgentHistoryList:
         try:
-            for step in range(1,max_steps+1):
-                await asyncio.sleep(0)
+            self._log_agent_run()
+            for step in range(max_steps):
                 if self.resume:
                     self.load_memory()
                     self.resume = False
                 if self._too_many_failures():
-                    return "Too many consecutive failures, stopping the agent."
-
+                    break
                 if not await self._handle_control_flags():
                     break
 
-                if terminate_event.is_set():
-                    return "User terminate the agent"
-
                 await self.step()
 
-                if self.histories.is_done():
-                    return "Task completed successfully"
-                
-            return "Failed to complete task"
+                if self.history.is_done():
+                    logger.info('✅ Task completed successfully')
+                    if self.register_done_callback:
+                        self.register_done_callback(self.history)
+                    break
+            else:
+                logger.info('❌ Failed to complete task in maximum steps')
+
+            return self.history
         except Exception:
+            logger.exception('Error running agent')
             raise
-        finally:
-            hotkey_listener.stop()
 
     async def _handle_control_flags(self) -> bool:
         if self._stopped:
