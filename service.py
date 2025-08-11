@@ -40,7 +40,6 @@ from src.controller.service import Controller
 from src.utils import time_execution_async
 from src.agent.output_schemas import OutputSchemas
 from src.agent.structured_llm import *
-from pynput import keyboard
 logger = logging.getLogger(__name__)
 
 T = TypeVar('T', bound=BaseModel)
@@ -107,7 +106,6 @@ class Agent:
         register_done_callback: Callable[['AgentHistoryList'], None] | None = None,
         tool_calling_method: Optional[str] = 'auto',
         agent_id: Optional[str] = None,
-        running_mcp: bool = False,
     ):
         self.current_time = datetime.now()
         self.wait_this_step = False
@@ -128,6 +126,7 @@ class Agent:
         self.max_actions_per_step = max_actions_per_step
         self.last_step_action = None
         self.goal_action_memory = OrderedDict()
+        self.long_goal_action_memory = OrderedDict()
 
         self.last_goal = None
         self.system_prompt_class = system_prompt_class
@@ -141,7 +140,6 @@ class Agent:
         self.initiate_messages()
         self._last_result = None
         self.register_done_callback = register_done_callback
-        self.running_mcp = running_mcp
 
         # Agent run variables
         self.history: AgentHistoryList = AgentHistoryList(history=[])
@@ -203,7 +201,7 @@ class Agent:
         }
         file_name = os.path.join(self.save_temp_file_path, f"memory.jsonl")
         os.makedirs(os.path.dirname(file_name), exist_ok=True) if os.path.dirname(file_name) else None
-        with open(file_name, "w", encoding=self.save_conversation_path_encoding) as f:
+        with open(file_name, "w", encoding=self.save_training_data_path_encoding) as f:
             if os.path.getsize(file_name) > 0:
                 f.truncate(0)
             f.write(json.dumps(data, ensure_ascii=False, default=lambda o: list(o) if isinstance(o, set) else o) + "\n")
@@ -216,7 +214,7 @@ class Agent:
             return
         file_name = os.path.join(self.save_temp_file_path, f".jsonl")
         if os.path.exists(file_name):
-            with open(file_name, "r", encoding=self.save_conversation_path_encoding) as f:
+            with open(file_name, "r", encoding=self.save_training_data_path_encoding) as f:
                 lines = f.readlines()
             if len(lines) >= 1:
                 data = json.loads(lines[-1])
@@ -236,9 +234,8 @@ class Agent:
         try:
             if self.n_steps >= 2:
                 annotated_screenshot = pyautogui.screenshot()
-                if not self.running_mcp:
-                    screenshot_filename = f'images/screenshot_{self.n_steps}.png'
-                    annotated_screenshot.save(screenshot_filename) 
+                screenshot_filename = f'images/screenshot_{self.n_steps}.png'
+                annotated_screenshot.save(screenshot_filename) 
                 self.screenshot_annotated = annotated_screenshot
                 state_content = [
                     {
@@ -254,8 +251,7 @@ class Agent:
             else:
                 screenshot = pyautogui.screenshot()
                 self.screenshot_annotated = screenshot
-                if not self.running_mcp:
-                    screenshot.save(f'images/screenshot_{self.n_steps}.png')
+                screenshot.save(f'images/screenshot_{self.n_steps}.png')
                 state_content = [
                     {
                         "type": "text",
@@ -284,6 +280,7 @@ class Agent:
 
             self.last_step_action = [action.model_dump(exclude_unset=True) for action in model_output.action] if model_output else []
 
+
             result = await self.controller.multi_act(
                 model_output.action
             )
@@ -300,10 +297,13 @@ class Agent:
                 self.state_memory[f'Step {self.n_steps} is'] = f'({self.evaluation})'
                 self.goal_action_memory[f'Step {self.n_steps}'] = f'Goal: {self.last_goal}, Actions: {self.last_step_action}'
                 self.goal_action_memory[f'Step {self.n_steps} is'] = f'({self.evaluation})'
+                self.long_goal_action_memory[f'Step {self.n_steps}'] = f'Goal: {self.last_goal}, Actions: {self.last_step_action}'
+                self.long_goal_action_memory[f'Step {self.n_steps} is'] = f'({self.evaluation})'
                 if len(self.goal_action_memory) > self.short_memory_len:
                     first_key = next(iter(self.goal_action_memory))
                     del self.goal_action_memory[first_key]
                 self.short_memory = f'The important memory: {self.state_memory}. {self.goal_action_memory}'
+                self.long_memory = f'The important memory: {self.state_memory}. {self.long_goal_action_memory}'
         except Exception as e:
             result = await self._handle_step_error(e)
             self._last_result = result
@@ -361,7 +361,7 @@ class Agent:
         Using the dynamic self.AgentOutput
         """        
         response: dict[str, Any] = await self.llm.ainvoke(input_messages)
-        # logger.debug(f'LLM response: {response}')
+        logger.debug(f'LLM response: {response}')
         record = str(response.content)
 
         output_dict = json.loads(record)
@@ -376,6 +376,13 @@ class Agent:
         return parsed, record
    
     def _log_response(self, response: AgentOutput) -> None:
+        if 'Success' in response.current_state.evaluation_previous_goal:
+            emoji = '✅'
+        elif 'Failed' in response.current_state.evaluation_previous_goal:
+            emoji = '❌'
+        else:
+            emoji = '❓'
+        # logger.info(f'{emoji} Eval: {response.current_state.evaluation_previous_goal}')
         logger.info(f'Eval: {response.current_state.evaluation_previous_goal}')
         logger.info(f'Memory: {self.state_memory}')
         logger.info(f'Next goal: {response.current_state.next_goal}')
@@ -443,7 +450,7 @@ class Agent:
 
     def _log_agent_run(self) -> None:
         logger.info(f'Starting task: {self.task}')
-    
+
     async def run(self, max_steps: int = 100) -> AgentHistoryList:
         try:
             self._log_agent_run()
@@ -471,51 +478,17 @@ class Agent:
             if hasattr(self, '_grpc_channel'):
                 await self._grpc_channel.close()
 
-
-    async def run_MCP(self, max_steps: int = 100) -> str:
-        terminate_signal = asyncio.Event()
-        loop = asyncio.get_event_loop()
-
-        def hotkey_signal():
-            loop.call_soon_threadsafe(terminate_signal.set)
-        
-        listener = keyboard.GlobalHotKeys({
-            '<ctrl>+<shift>+2': hotkey_signal,  # Ctrl + Shift + 2 to stop the agent
-        })
-        listener.start()
-        try:
-            self._log_agent_run()
-
-            for step in range(max_steps):
-                if self.resume:
-                    self.load_memory()
-                    self.resume = False
-                if self._too_many_failures():
-                    return "Too many consecutive failures, stopping agent."
-                
-                if terminate_signal.is_set():
-                    return "Agent run terminated by user."
-
-                await self.step()
-
-                if self.history.is_done():
-                    return "Task completed successfully"
-            else:
-                logger.info('Failed to complete task in maximum steps')
-
-            return "Failed to complete task in maximum steps"
-        except Exception:
-            logger.exception('Error running agent')
-            raise
-        finally:
-            if hasattr(self, '_grpc_channel'):
-                await self._grpc_channel.close()
-
     def _too_many_failures(self) -> bool:
         if self.consecutive_failures >= self.max_failures:
             logger.error(f'Stopping due to {self.max_failures} consecutive failures')
             return True
         return False
+
+
+    def save_history(self, file_path: Optional[str | Path] = None) -> None:
+        if not file_path:
+            file_path = 'AgentHistory.json'
+        self.history.save_to_file(file_path)
 
     def initiate_messages(self):
         self.agent_message_manager = MessageManager(

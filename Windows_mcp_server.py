@@ -3,7 +3,7 @@ from fastmcp import FastMCP
 from src.agent.service import Agent
 from langchain_openai import ChatOpenAI
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.ERROR,
     format='[%(asctime)s] %(levelname)-8s %(message)s',
     handlers=[logging.StreamHandler(sys.stderr)]
 )
