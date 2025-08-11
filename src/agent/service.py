@@ -136,6 +136,7 @@ class Agent:
         agent_id: Optional[str] = None,
     ):
         self.current_time = datetime.now()
+        self.wait_this_step = False
         self.agent_id = agent_id or str(uuid.uuid4())
         self.task = task
         self.resume = resume
@@ -377,13 +378,18 @@ class Agent:
             self._last_result = result
             if information_stored != 'None':
                 self.infor_memory.append({f'Step {self.n_steps}, the information stored is: {information_stored}'})
+            
             if self.use_ui:
                 for i in range(len(model_output.action)):
                     if 'open_app' in str(model_output.action[i]):
                         logger.debug(f'Found open_app action, building the tree again')
                         await self.mac_tree_builder.build_tree(self.get_last_pid())
-
-            if self.last_step_action and 'wait' not in str(self.last_step_action[0]):
+            if 'wait' not in str(self.last_step_action[0]):
+                self.wait_this_step = False
+            else:
+                self.wait_this_step = True
+                logger.info(f'Waiting for the next step, because the last action is: {self.last_step_action[0]}')
+            if self.last_step_action and not self.wait_this_step:
                 self.state_memory[f'Step {self.n_steps}'] = f'Goal: {self.last_goal}'
                 self.state_memory[f'Step {self.n_steps} is'] = '(success)'
                 self.goal_action_memory[f'Step {self.n_steps}'] = f'Goal: {self.last_goal}, Actions: {self.last_step_action}'
@@ -401,7 +407,8 @@ class Agent:
         finally:
             if result:
                 self._make_history_item(model_output, state, result)
-        self.n_steps += 1
+            if not self.wait_this_step:
+                self.n_steps += 1
 
     async def _handle_step_error(self, error: Exception) -> list[ActionResult]:
         include_trace = logger.isEnabledFor(logging.DEBUG)
