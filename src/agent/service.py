@@ -388,7 +388,7 @@ class Agent:
                 self.wait_this_step = False
             else:
                 self.wait_this_step = True
-                logger.info(f'Waiting for the next step, because the last action is: {self.last_step_action[0]}')
+                logger.info(f'This step is a wait action, skipping the memory saving')
             if self.last_step_action and not self.wait_this_step:
                 self.state_memory[f'Step {self.n_steps}'] = f'Goal: {self.last_goal}'
                 self.state_memory[f'Step {self.n_steps} is'] = '(success)'
