@@ -287,9 +287,10 @@ class Agent:
             self._last_result = result
             if information_stored != 'None':
                 self.infor_memory.append({f'Step {self.n_steps}, the information stored is: {information_stored}'})
-            if "wait" in str(self.last_step_action[0]):
+            if len(self.last_step_action) == 0:
                 self.wait_this_step = True
-                logger.info(f"Step {self.n_steps} is a wait step, skipping adding to memory.")
+            elif 'wait' in str(self.last_step_action[0]):
+                self.wait_this_step = True
             else:
                 self.wait_this_step = False
             if self.last_step_action and not self.wait_this_step:
