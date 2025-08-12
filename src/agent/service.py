@@ -384,10 +384,12 @@ class Agent:
                     if 'open_app' in str(model_output.action[i]):
                         logger.debug(f'Found open_app action, building the tree again')
                         await self.mac_tree_builder.build_tree(self.get_last_pid())
-            if 'wait' not in str(self.last_step_action[0]):
-                self.wait_this_step = False
-            else:
+            if len(self.last_step_action) == 0:
                 self.wait_this_step = True
+            elif 'wait' in str(self.last_step_action[0]):
+                self.wait_this_step = True
+            else:
+                self.wait_this_step = False
                 logger.info(f'This step is a wait action, skipping the memory saving')
             if self.last_step_action and not self.wait_this_step:
                 self.state_memory[f'Step {self.n_steps}'] = f'Goal: {self.last_goal}'
