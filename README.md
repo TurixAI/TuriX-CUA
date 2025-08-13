@@ -43,6 +43,11 @@ Prefer your own model? **Change in `config.json` and go.**
 
 ## 🖼️ Demos
 <h3 align="center">MacOS Demo</h3>
+<p align="center"><strong>Book a flight, hotel and uber.</strong></p>
+<p align="center">
+   <img src="./doc/booking_demo.gif" width="1600" alt="TuriX macOS demo - booking">
+</p>
+
 <p align="center"><strong>Search iPhone price, create Pages document, and send to contact</strong></p>
 <p align="center">
    <img src="./doc/demo1.gif" width="1600" alt="TuriX macOS demo - iPhone price search and document sharing">
@@ -51,11 +56,6 @@ Prefer your own model? **Change in `config.json` and go.**
 <p align="center"><strong>Generate a bar-chart in the numbers file sent by boss in discord and insert it to the right place of my powerpoint, and reply my boss.</strong></p>
 <p align="center">
    <img src="./doc/complex_demo_mac.gif" width="1600" alt="TuriX macOS demo - excel graph to powerpoint">
-</p>
-
-<p align="center"><strong>Book a flight, hotel and uber.</strong></p>
-<p align="center">
-   <img src="./doc/booking_demo.gif" width="1600" alt="TuriX macOS demo - booking">
 </p>
 
 <h3 align="center">Windows Demo</h3>
