@@ -89,7 +89,7 @@ For more details, check our [report](https://turix.ai/technical-report/).
 
 > **We never collect data**—install, grant permissions, and hack away.
 
-> **0. Windows Users**: Switch to the `windows` branch for Windows-specific setup and installation instructions (Coming Soon🚀).
+> **0. Windows Users**: Switch to the `windows` branch for Windows-specific setup and installation instructions.
 >
 > ```bash
 > git checkout windows
