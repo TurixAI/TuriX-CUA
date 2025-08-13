@@ -54,6 +54,11 @@ Prefer your own model? **Change in `config.json` and go.**
    <img src="./doc/complex_demo_mac.gif" width="1600" alt="TuriX macOS demo - excel graph to powerpoint">
 </p>
 
+<p align="center"><strong>Book a flight, hotel and uber.</strong></p>
+<p align="center">
+   <img src="./doc/booking_demo.gif" width="1600" alt="TuriX macOS demo - booking">
+</p>
+
 <h3 align="center">Windows Demo</h3>
 <p align="center"><strong>Search video content in youtube and like it</strong></p>
 <p align="center">
