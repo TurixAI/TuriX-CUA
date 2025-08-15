@@ -1,20 +1,80 @@
-# winapp_launcher.py
 import asyncio, json, os, re, subprocess, sys, time
 from pathlib import Path
 from typing import Optional
 
-import win32com.client      # 解析 .lnk
-import win32gui, win32process, win32con, pywintypes
+import win32com.client
+import win32gui, win32process, win32con, pywintypes,win32api
 import psutil
 import win32com.shell.shell as shell
 from rapidfuzz import fuzz, process
+import ctypes
 
+program_data = os.environ.get("ProgramData", "C:\\ProgramData")
+appdata = os.environ.get("APPDATA", "C:\\Users\\Default\\AppData\\Roaming")
+if not program_data or not appdata:
+    raise RuntimeError("Environment variables ProgramData or APPDATA are not set.")
 START_MENU_DIRS = [
-    Path(os.environ["ProgramData"]) / r"Microsoft\Windows\Start Menu\Programs",
-    Path(os.environ["APPDATA"])     / r"Microsoft\Windows\Start Menu\Programs",
-]           # :contentReference[oaicite:0]{index=0}
+    Path(program_data) / r"Microsoft\Windows\Start Menu\Programs",
+    Path(appdata)     / r"Microsoft\Windows\Start Menu\Programs",
+]
 
 INDEX_PATH = Path(__file__).with_name("app_index.json")
+
+_BUILTIN_EXES = [
+    "notepad.exe", "cmd.exe", "powershell.exe", "wt.exe",
+    "mspaint.exe", "write.exe", "wordpad.exe",
+    "regedit.exe", "taskmgr.exe", "explorer.exe",
+]
+
+def _scan_builtin_apps() -> list[dict]:
+    sys32 = Path(os.environ["SystemRoot"]) / "System32"
+    apps  = []
+    for exe in _BUILTIN_EXES:
+        p = sys32 / exe
+        if p.exists():
+            apps.append({
+                "name": p.stem,
+                "exe":  str(p),
+                "args": "",
+                "cwd":  str(sys32),
+                "lnk":  None
+            })
+    return apps
+
+def _filter_apps(apps: list[dict]) -> list[dict]:
+    seen   : set[str] = set()
+    useful : list[dict] = []
+
+    IGNORE_KEYWORDS = ("uninstall", "setup", "installer",
+                       "帮助", "帮助文档", "documentation", "readme")
+
+    for app in apps:
+        exe = app.get("exe") or ""
+        if not exe or not Path(exe).exists():
+            continue
+        if any(k in exe.lower() for k in IGNORE_KEYWORDS):
+            continue
+
+        key = exe.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        useful.append(app)
+
+    return useful
+
+user32 = ctypes.WinDLL("user32", use_last_error=True)
+
+def _force_foreground(hwnd: int) -> None:
+    fg_thread = win32process.GetWindowThreadProcessId(win32gui.GetForegroundWindow())[0]
+    this_thread = win32api.GetCurrentThreadId()
+    if user32.AttachThreadInput(this_thread, fg_thread, True):
+        try:
+            win32gui.ShowWindow(hwnd, win32con.SW_SHOW)
+            win32gui.SetForegroundWindow(hwnd)
+        finally:
+            user32.AttachThreadInput(this_thread, fg_thread, False)
+
 def _scan_shortcuts() -> list[dict]:
     shell_dispatch = win32com.client.Dispatch("WScript.Shell")
     apps = []
@@ -31,21 +91,31 @@ def _scan_shortcuts() -> list[dict]:
             })
     return apps
 
-def build_index(force=False) -> None:
+def build_index(force=True) -> None:
     if INDEX_PATH.exists() and not force:
         return
     index = _scan_shortcuts()
-    INDEX_PATH.write_text(json.dumps(index, ensure_ascii=False, indent=2))
+    index += _scan_builtin_apps()
+    index = _filter_apps(index)
+    INDEX_PATH.write_text(json.dumps(index, ensure_ascii=False, indent=2),
+                          encoding="utf-8-sig")
 
 def _load_index() -> list[dict]:
     build_index()
-    return json.loads(INDEX_PATH.read_text())
+    return json.loads(INDEX_PATH.read_text(encoding="utf-8-sig"))
+
+def list_applications() -> list[dict]:
+    """List all applications in the Start Menu."""
+    idx = _load_index()
+    names = sorted({app["name"] for app in idx}, key=str.lower)
+    return names
 
 def resolve_app(name: str) -> Optional[dict]:
     idx = _load_index()
     cand = [app for app in idx if name.lower() in app["name"].lower()]
     if cand:
         return sorted(cand, key=lambda a: len(a["name"]))[0]
+    # Fuzzy match if no exact match found
     names = [app["name"] for app in idx]
     best = process.extractOne(name, names, scorer=fuzz.QRatio)
     if best and best[1] > 60:        
@@ -134,27 +204,102 @@ async def open_application_by_name(app_name: str,
     if not rec:
         return False, "not found in index"
 
+    # Try to activate the existing window first
+    exe_name: Optional[str] = None
+    if rec.get("exe"):
+        try:
+            exe_name = Path(rec["exe"]).name
+        except Exception:
+            exe_name = None
+
+    title_hint = rec.get("name")
+
+    if bring_to_front:
+        if _activate_window(exe_name, title_hint):
+            return True, "activated existing window"
+
     ok, info = await _launch_record(rec)
-    if ok and bring_to_front:
-        await asyncio.sleep(0.4)
-        _activate_window_by_exe(Path(rec.get("exe", rec["name"])).name)
+    if not ok:
+        return False, info
 
-    # logger.info("open_app '%s' -> %s", app_name, info if ok else "FAILED")
-    return ok, info
+    if bring_to_front:
+        for _ in range(40):
+            if _activate_window(exe_name, title_hint):
+                return True, "launched and activated window"
+            await asyncio.sleep(0.05)
 
-def _activate_window_by_exe(exe_name: str):
-    exe_name = exe_name.lower()
+    return True, info
+
+
+def _activate_window_by_exe(exe_name: str) -> bool:
+    exe_key = exe_name.lower() if exe_name else None
+    return _activate_window(exe_key, None)
+
+
+def _activate_hwnd(hwnd: int) -> None:
+    """Restore + bring to foreground, with fallback."""
+    try:
+        win32gui.ShowWindow(hwnd, win32con.SW_SHOW)
+        win32gui.SetForegroundWindow(hwnd)
+    except pywintypes.error:
+        _force_foreground(hwnd)
+
+def _best_existing_hwnd(exe_name: Optional[str],
+                        title_hint: Optional[str]) -> Optional[int]:
+    """
+    Find the most appropriate top-level window:
+    Prioritizes matching the process name (exe_name fragment matching, suitable for differences such as wt.exe / WindowsTerminal.exe)
+    Falls back to fuzzy matching of the title if the exe is unavailable (suitable for UWP / AppsFolder shortcuts)
+    Filters tool windows, prioritizing non-minimized windows
+    """
+    exe_key = exe_name.lower() if exe_name else None
+    candidates: list[int] = []
 
     def enum_handler(hwnd, _):
-        if win32gui.IsWindowVisible(hwnd):
-            _, pid = win32process.GetWindowThreadProcessId(hwnd)
+        if not win32gui.IsWindowVisible(hwnd):
+            return True
+        title = win32gui.GetWindowText(hwnd)
+        if not title:
+            return True
+
+        matched = False
+
+        # 1) name match
+        if exe_key:
             try:
-                p = psutil.Process(pid)
-                if exe_name in p.name().lower():
-                    win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
-                    win32gui.SetForegroundWindow(hwnd)
-                    return False
+                _, pid = win32process.GetWindowThreadProcessId(hwnd)
+                pname = psutil.Process(pid).name().lower()
+                if exe_key in pname or pname in exe_key:
+                    matched = True
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 pass
+
+        # 2) Title fuzzy matching
+        if not matched and title_hint:
+            try:
+                if fuzz.QRatio(title_hint.lower(), title.lower()) >= 80:
+                    matched = True
+            except Exception:
+                pass
+
+        if matched:
+            exstyle = win32gui.GetWindowLong(hwnd, win32con.GWL_EXSTYLE)
+            if exstyle & win32con.WS_EX_TOOLWINDOW:
+                return True
+            candidates.append(hwnd)
         return True
+
     win32gui.EnumWindows(enum_handler, None)
+
+    for h in candidates:
+        if not win32gui.IsIconic(h):
+            return h
+    return candidates[0] if candidates else None
+
+def _activate_window(exe_name: Optional[str], title_hint: Optional[str]) -> bool:
+    """Activate an existing window based on the process name/title clue."""
+    hwnd = _best_existing_hwnd(exe_name, title_hint)
+    if hwnd:
+        _activate_hwnd(hwnd)
+        return True
+    return False
