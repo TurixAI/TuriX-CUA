@@ -70,7 +70,7 @@ def _force_foreground(hwnd: int) -> None:
     this_thread = win32api.GetCurrentThreadId()
     if user32.AttachThreadInput(this_thread, fg_thread, True):
         try:
-            win32gui.ShowWindow(hwnd, win32con.SW_SHOW)
+            win32gui.ShowWindow(hwnd, win32con.SW_SHOWMAXIMIZED)
             win32gui.SetForegroundWindow(hwnd)
         finally:
             user32.AttachThreadInput(this_thread, fg_thread, False)
@@ -239,7 +239,7 @@ def _activate_window_by_exe(exe_name: str) -> bool:
 def _activate_hwnd(hwnd: int) -> None:
     """Restore + bring to foreground, with fallback."""
     try:
-        win32gui.ShowWindow(hwnd, win32con.SW_SHOW)
+        win32gui.ShowWindow(hwnd, win32con.SW_SHOWMAXIMIZED)
         win32gui.SetForegroundWindow(hwnd)
     except pywintypes.error:
         _force_foreground(hwnd)
