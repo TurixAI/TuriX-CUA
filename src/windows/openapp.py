@@ -70,7 +70,7 @@ def _force_foreground(hwnd: int) -> None:
     this_thread = win32api.GetCurrentThreadId()
     if user32.AttachThreadInput(this_thread, fg_thread, True):
         try:
-            win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
+            win32gui.ShowWindow(hwnd, win32con.SW_SHOW)
             win32gui.SetForegroundWindow(hwnd)
         finally:
             user32.AttachThreadInput(this_thread, fg_thread, False)
@@ -204,7 +204,7 @@ async def open_application_by_name(app_name: str,
     if not rec:
         return False, "not found in index"
 
-    # 先尝试激活已有窗口 —— 这样就不会新开窗口了
+    # Try to activate the existing window first
     exe_name: Optional[str] = None
     if rec.get("exe"):
         try:
@@ -212,25 +212,22 @@ async def open_application_by_name(app_name: str,
         except Exception:
             exe_name = None
 
-    title_hint = rec.get("name")  # 用于 UWP/AppsFolder 的标题兜底
+    title_hint = rec.get("name")
 
     if bring_to_front:
         if _activate_window(exe_name, title_hint):
             return True, "activated existing window"
 
-    # 没有已开窗口：再启动
     ok, info = await _launch_record(rec)
     if not ok:
         return False, info
 
-    # 启动后，短轮询等待窗口出现并置前（比固定 sleep 更稳）
     if bring_to_front:
-        for _ in range(40):  # ~2s：40 * 50ms
+        for _ in range(40):
             if _activate_window(exe_name, title_hint):
                 return True, "launched and activated window"
             await asyncio.sleep(0.05)
 
-    # 启动成功，但暂时没探测到窗口（后台驻留类应用的常见表现）
     return True, info
 
 
@@ -242,7 +239,7 @@ def _activate_window_by_exe(exe_name: str) -> bool:
 def _activate_hwnd(hwnd: int) -> None:
     """Restore + bring to foreground, with fallback."""
     try:
-        win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
+        win32gui.ShowWindow(hwnd, win32con.SW_SHOW)
         win32gui.SetForegroundWindow(hwnd)
     except pywintypes.error:
         _force_foreground(hwnd)
@@ -250,10 +247,10 @@ def _activate_hwnd(hwnd: int) -> None:
 def _best_existing_hwnd(exe_name: Optional[str],
                         title_hint: Optional[str]) -> Optional[int]:
     """
-    找到最合适的顶层窗口：
-    - 优先匹配进程名（exe_name 片段匹配，适配 wt.exe / WindowsTerminal.exe 这类差异）
-    - exe 不可用时回退到标题模糊匹配（适配 UWP / AppsFolder 快捷方式）
-    - 过滤工具窗体，优先选择非最小化窗口
+    Find the most appropriate top-level window:
+    Prioritizes matching the process name (exe_name fragment matching, suitable for differences such as wt.exe / WindowsTerminal.exe)
+    Falls back to fuzzy matching of the title if the exe is unavailable (suitable for UWP / AppsFolder shortcuts)
+    Filters tool windows, prioritizing non-minimized windows
     """
     exe_key = exe_name.lower() if exe_name else None
     candidates: list[int] = []
@@ -267,18 +264,17 @@ def _best_existing_hwnd(exe_name: Optional[str],
 
         matched = False
 
-        # 1) 进程名匹配
+        # 1) name match
         if exe_key:
             try:
                 _, pid = win32process.GetWindowThreadProcessId(hwnd)
                 pname = psutil.Process(pid).name().lower()
-                # 片段互包含，适配 wt.exe vs WindowsTerminal.exe 等
                 if exe_key in pname or pname in exe_key:
                     matched = True
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 pass
 
-        # 2) 标题模糊匹配（UWP / 无法拿到 exe 的 .lnk）
+        # 2) Title fuzzy matching
         if not matched and title_hint:
             try:
                 if fuzz.QRatio(title_hint.lower(), title.lower()) >= 80:
@@ -289,20 +285,19 @@ def _best_existing_hwnd(exe_name: Optional[str],
         if matched:
             exstyle = win32gui.GetWindowLong(hwnd, win32con.GWL_EXSTYLE)
             if exstyle & win32con.WS_EX_TOOLWINDOW:
-                return True  # 跳过工具窗体
+                return True
             candidates.append(hwnd)
         return True
 
     win32gui.EnumWindows(enum_handler, None)
 
-    # 优先返回未最小化的；否则退而求其次
     for h in candidates:
         if not win32gui.IsIconic(h):
             return h
     return candidates[0] if candidates else None
 
 def _activate_window(exe_name: Optional[str], title_hint: Optional[str]) -> bool:
-    """根据进程名/标题线索激活已有窗口。找不到返回 False。"""
+    """Activate an existing window based on the process name/title clue."""
     hwnd = _best_existing_hwnd(exe_name, title_hint)
     if hwnd:
         _activate_hwnd(hwnd)
