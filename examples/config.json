@@ -3,26 +3,22 @@
 
   "llm": {
     "provider": "turix",
-    "model_name": "turix-model",
+    "model_name": "turix-large-0.4",
     "api_key": "your_api_key_here",
-    "base_url": "https://llm.turixapi.io/v1" 
-  },
-
-  "planner_llm": {
-    "provider": "turix",
-    "model_name": "turix-planner-model",
-    "api_key": "your_api_key_here",
-    "base_url": "https://llm.turixapi.io/v1" 
+    "base_url": "http://180.184.54.179:8002/v1" 
   },
 
   "agent": {
-    "task": "open Chrome, go to github, and search for turix-cua in the github webpage. Enter the TuriX-CUA repository, and star it.",
+    "task": "Please open a stock market website for me and check today's stock price of CATL (Contemporary Amperex Technology Co., Limited). Then, open a memo, create a new memo, and write the stock price into the new memo.",
     "short_memory_len": 5,
     "use_ui": false,
     "max_actions_per_step": 5,
     "max_steps": 100,
     "use_turix": true,
     "save_conversation_path": "llm_interactions.log",
-    "save_conversation_path_encoding": "utf-8"
+    "save_conversation_path_encoding": "utf-8",
+    
+    "enable_step_memory": true,                 
+    "step_memory_dir": "temp_files/step_memory"  
   }
 }

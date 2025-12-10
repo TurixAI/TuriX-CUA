@@ -54,6 +54,7 @@ def build_llm(cfg: dict):
         return ChatGoogleGenerativeAI(
             model="gemini-2.5-flash", api_key=api_key, temperature=0.3
         )
+
     
     if provider == "gpt":
         return ChatOpenAI(
@@ -113,14 +114,12 @@ def main(config_path: str = "config.json"):
 
     # --- Build LLM & Agent --------------------------------------------------
     llm = build_llm(cfg["llm"])
-    planner_llm = build_llm(cfg["planner_llm"])
     agent_cfg = cfg["agent"]
     controller = Controller()
 
     agent = Agent(
         task                    = agent_cfg["task"],
         llm                     = llm,
-        planner_llm             = planner_llm,
         use_turix               = agent_cfg.get("use_turix", True),
         short_memory_len        = agent_cfg.get("short_memory_len", 5),
         controller              = controller,
@@ -128,6 +127,9 @@ def main(config_path: str = "config.json"):
         max_actions_per_step    = agent_cfg.get("max_actions_per_step", 5),
         save_conversation_path  = agent_cfg.get("save_conversation_path"),
         save_conversation_path_encoding = agent_cfg.get("save_conversation_path_encoding", "utf-8"),
+   # === 新增：步骤记忆参数 ===
+        enable_step_memory      = agent_cfg.get("enable_step_memory", False),
+        step_memory_dir         = agent_cfg.get("step_memory_dir", "temp_files/step_memory"),
     )
 
     async def runner():
