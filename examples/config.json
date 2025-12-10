@@ -5,7 +5,7 @@
     "provider": "turix",
     "model_name": "turix-large-0.4",
     "api_key": "your_api_key_here",
-    "base_url": "http://180.184.54.179:8002/v1" 
+    "base_url": "xxxx" 
   },
 
   "agent": {
