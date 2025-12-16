@@ -1,0 +1,15 @@
+src/__pycache__/
+src/agent/__pycache__/
+src/agent/message_manager/__pycache__/
+src/agent/temp_files/
+src/controller/__pycache__/
+src/controller/registry/__pycache__/
+src/mac/__pycache__/
+src/dinov3/__pycache__/
+src/dinov3/weights/
+src/dinov3/layers/__pycache__/
+src/dinov3/utils/__pycache__/
+src/.DS_Store
+src/dinov3/.DS_Store
+src/dinov3/layers/.DS_Store
+src/dinov3/utils/.DS_Store
