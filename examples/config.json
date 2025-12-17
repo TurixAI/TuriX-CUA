@@ -3,37 +3,37 @@
 
   "brain_llm": {
     "provider": "turix",
-    "model_name": "turix-large-0.4",
-    "base_url": "http://180.184.54.179:8002/v1",
-    "api_key": "your_api_key_here"
+    "model_name": "turix-model",
+    "api_key": "your_api_key_here",
+    "base_url": "https://llm.turixapi.io/v1" 
   },
 
   "actor_llm": {
     "provider": "turix",
-    "model_name": "turix-large-0.4",
-    "base_url": "http://180.184.54.179:8002/v1",
-    "api_key": "your_api_key_here"
+    "model_name": "turix-model",
+    "api_key": "your_api_key_here",
+    "base_url": "https://llm.turixapi.io/v1" 
   },
 
   "planner_llm": {
     "provider": "turix",
-    "model_name": "turix-large-0.4",
-    "base_url": "http://180.184.54.179:8002/v1",
-    "api_key": "your_api_key_here"
+    "model_name": "turix-model",
+    "api_key": "your_api_key_here",
+    "base_url": "https://llm.turixapi.io/v1" 
   },
 
   "screenshot_features_extractor": {
     "img_size": 512,
     "pretrained": true,
     "feature_dim": 768,
-    "weight_path": "src/dinov3/weights/dinov3_vitb16_pretrain_lvd1689m-73cec8be.pth"
+    "weight_path": "path-to-weights"
   },
 
   "embed_llm": {
-    "provider": "openai",
-    "model_name": "GTE_7b",
-    "base_url": "http://180.184.54.179:8012/v1",
-    "api_key": "YOUR_API_KEY",
+    "provider": "turix",
+    "model_name": "turix-model",
+    "api_key": "your_api_key_here",
+    "base_url": "https://llm.turixapi.io/v1",
     "max_retries": 3,
     "timeout": 30
   },
@@ -49,6 +49,6 @@
     "save_actor_conversation_path": "actor_llm_interactions.log",
     "save_actor_conversation_path_encoding": "utf-8",
     "save_brain_conversation_path_encoding": "utf-8",
-    "knowledge_base_json": "knowledge_base.json"
+    "knowledge_base_json": "path-to-knowledge-base-json"
   }
 }
