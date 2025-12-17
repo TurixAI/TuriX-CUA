@@ -393,10 +393,6 @@ class Agent:
         if n_entries == 0:
             return []
         
-        # 解析current_memory, 其实际参数为self.short_memory
-
-
-        
         combined_scores = np.zeros(n_entries, dtype=np.float32)
         
         weights = {
@@ -477,7 +473,6 @@ class Agent:
             best_loc = None
             best_scale = 1.0
             
-            # 多尺度搜索
             scales = [0.9, 0.95, 1.0, 1.05, 1.1]
             
             for scale in scales:
@@ -486,11 +481,9 @@ class Agent:
                 else:
                     scaled_template = template_gray
                 
-                # 确保模板不大于查询图像
                 if scaled_template.shape[0] > query_gray.shape[0] or scaled_template.shape[1] > query_gray.shape[1]:
                     continue
                 
-                # 模板匹配
                 result = cv2.matchTemplate(query_gray, scaled_template, cv2.TM_CCOEFF_NORMED)
                 _, max_val, _, max_loc = cv2.minMaxLoc(result)
                 
@@ -499,13 +492,12 @@ class Agent:
                     best_loc = max_loc
                     best_scale = scale
             
-            if best_val < 0.5:  # 匹配阈值
+            if best_val < 0.5:  
                 logger.info(f"Warning: Low template match confidence: {best_val:.3f}")
                 return None
             
             logger.info(f"Template match: confidence={best_val:.3f}, scale={best_scale:.2f}")
             
-            # 计算对应点坐标（模板左上角 + 相对偏移 * 缩放）
             result_x = int(best_loc[0] + rel_x * best_scale)
             result_y = int(best_loc[1] + rel_y * best_scale)
             
@@ -848,6 +840,7 @@ class Agent:
             self.current_screenshot_analysis = parsed['analysis']['analysis']
             self.task_progress = parsed['current_state']['task_progress']
 
+
             self.kb_match = self._search_knowledge_base(self.next_goal, self.memory, current_screenshot_path, self.current_screenshot_analysis)
             self.memory.append(self.next_goal)
 
@@ -979,7 +972,6 @@ class Agent:
             self.actor_message_manager.add_model_output(model_output)
             
             self.last_step_action = [action.model_dump(exclude_unset=True) for action in model_output.action] if model_output else []
-            # join the self.state_memory and the self.last_goal
 
             result = await self.controller.multi_act(
                 model_output.action,
