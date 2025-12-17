@@ -1,17 +1,22 @@
-import os, sys, json, logging, argparse, asyncio, ctypes
+import os, sys, json, logging, argparse, asyncio, ctypes, torch
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
+import numpy as np
+from PIL import Image
+from torchvision import transforms
+
 
 # Add the project root to Python path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from langchain_openai import ChatOpenAI
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_anthropic import ChatAnthropic
 
 from src import Agent
 from src.controller.service import Controller
+from src.dinov3 import vision_transformer as dinov3_ 
 
 # ---------- Utilities -------------------------------------------------------
 def has_screen_capture_permission() -> bool:
@@ -39,6 +44,8 @@ def build_llm(cfg: dict):
     api_key  = cfg.get("api_key") or os.getenv("API_KEY") or os.getenv("OPENAI_API_KEY")
     model_name = cfg.get("model_name")
     base_url = cfg.get("base_url")
+    timeout = None if "timeout" not in cfg else cfg["timeout"]
+    max_retries = None if "max_retries" not in cfg else cfg["max_retries"]
 
     if provider == "turix":
         if not base_url:
@@ -67,8 +74,59 @@ def build_llm(cfg: dict):
 
     if provider == "anthropic":
         return ChatAnthropic(model="claude-4-opus", api_key=api_key, temperature=0.3)
+    
+    if provider == "openai":
+        return OpenAIEmbeddings(
+            model=model_name,  
+            openai_api_base=base_url, 
+            openai_api_key=api_key,
+            max_retries=max_retries,  
+            timeout=timeout  
+        )
 
     raise ValueError(f"Unknown llm provider '{provider}'")
+
+class DynamicImageMatcher:
+    def __init__(self, cfg: dict):
+
+        self.img_size = cfg.get("img_size")
+        self.pretrained = cfg.get("pretrained")
+        self.feature_dim = cfg.get("feature_dim")
+        self.model_weight_path = cfg.get("weight_path")
+
+        self.id_to_name = {}
+        self.next_id = 0
+        self.transforms= transforms.Compose([
+        transforms.Resize((self.img_size, self.img_size)), 
+        transforms.ToTensor(),       
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]), 
+        ])
+
+        self.build_model()
+        
+    def build_model(self):
+        self.model = dinov3_.DinoVisionTransformer(
+        img_size=self.img_size,
+        layerscale_init=1,
+        )
+        
+        if self.pretrained:
+            model_dict = self.model.state_dict()
+            state_dit = torch.load(self.model_weight_path, map_location='mps',weights_only=True)
+            model_dict.update(state_dit.items())
+            self.model.load_state_dict(model_dict)
+            self.model = self.model.eval()
+        return self.model
+    
+    def _get_image_embedding(self, image_path: str) -> np.ndarray:
+
+        image = Image.open(image_path).convert('RGB')
+        input_tensor = self.transforms(image).unsqueeze(0) 
+        with torch.no_grad():
+            embedding = self.model(input_tensor)
+        
+        embedding_np = embedding.squeeze().numpy()
+        return embedding_np
 
 # ---------- Main ------------------------------------------------------------
 def main(config_path: str = "config.json"):
@@ -117,13 +175,20 @@ def main(config_path: str = "config.json"):
     planner_llm = build_llm(cfg["planner_llm"])
     agent_cfg = cfg["agent"]
     controller = Controller()
+    screenshot_features_extractor = DynamicImageMatcher(cfg["screenshot_features_extractor"])
+    embed_llm = build_llm(cfg["embed_llm"])
 
+
+    # task：
+    # "open Chrome, go to github, and search for turix-cua in the github webpage. Enter the TuriX-CUA repository, and star it.",
+    # "用safari去苹果官网帮我找到手机iphone 手机的最新价格信息，用record_info进行记录（型号和价格），然后写成一个pages文档,保存成pdf文件，重命名后保存到桌面 然后用微信发给 pyk"
     agent = Agent(
         task                    = agent_cfg["task"],
         brain_llm               = brain_llm,
         actor_llm               = actor_llm,
         # planner_llm             = planner_llm,
         planner_llm             =  None,
+        embed_llm               = embed_llm,
         short_memory_len        = agent_cfg.get("short_memory_len", 5),
         controller              = controller,
         use_ui                  = agent_cfg.get("use_ui", False),
@@ -131,7 +196,10 @@ def main(config_path: str = "config.json"):
         save_brain_conversation_path  = agent_cfg.get("save_brain_conversation_path"),
         save_brain_conversation_path_encoding = agent_cfg.get("save_brain_conversation_path_encoding", "utf-8"),
         save_actor_conversation_path  = agent_cfg.get("save_actor_conversation_path"),
-        save_actor_conversation_path_encoding = agent_cfg.get("save_actor_conversation_path_encoding", "utf-8")
+        save_actor_conversation_path_encoding = agent_cfg.get("save_actor_conversation_path_encoding", "utf-8"),
+        # the below params for knoewlege base retirval
+        knowledge_base_json     = agent_cfg.get("knowledge_base_json"),
+        screenshot_features_extractor = screenshot_features_extractor,
     )
 
     async def runner():

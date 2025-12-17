@@ -13,3 +13,16 @@ src/.DS_Store
 src/dinov3/.DS_Store
 src/dinov3/layers/.DS_Store
 src/dinov3/utils/.DS_Store
+images/
+screenshots/
+knowledge_base.json
+.DS_Store
+logging.log
+knowledge_base_analysis.index
+knowledge_base_goal.index
+knowledge_base_task.index
+knowledge_base_embeddings.pkl
+knowledge_base_image.index
+knowledge_base_memory.index
+match/
+examples/test.py

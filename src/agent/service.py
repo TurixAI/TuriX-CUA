@@ -8,6 +8,11 @@ import os
 import uuid
 from pathlib import Path
 import Quartz
+import cv2
+import numpy as np
+import pickle
+import faiss
+import inspect
 from typing import Any, Callable, Dict, List, Optional, Type, TypeVar
 import re
 from datetime import datetime
@@ -121,6 +126,9 @@ class Agent:
         register_done_callback: Callable[['AgentHistoryList'], None] | None = None,
         tool_calling_method: Optional[str] = 'auto',
         agent_id: Optional[str] = None,
+        knowledge_base_json: Optional[str] = None, # Path to the knowledge base JSON file
+        screenshot_features_extractor: Optional[Callable[[str], np.ndarray]] = None, # model to extract features from screenshots
+        embed_llm: Optional[BaseChatModel] = None, # embedding model for text
     ):
         self.wait_this_step = False
         if agent_id:
@@ -191,6 +199,445 @@ class Agent:
             raise ValueError("Agent ID is required for resuming a task.")
         self.save_temp_file_path = os.path.join(self.save_temp_file_path, f"{self.agent_id}")
         
+        """ params for knowledge base """
+        self.screenshot_features_extractor = screenshot_features_extractor # model to extract features from screenshots
+        self.embed_model = embed_llm  # embedding model for text
+        self.kb_match = None # store the matched knowledge base if matched
+        self.knowledge_base_json = knowledge_base_json # Path to the knowledge base JSON file
+        self.kb_steps = self._load_knowledge_base() if self.knowledge_base_json is not None else []  # list of knowledge base
+        self.kb_match_Action = None # store the matched knowledge base action if matched
+        self.kb_match_screenshot = None # store the matched knowledge base screenshot if matched
+        self.similarity_threshold_text = 0.6 # threshold for text similarity matching
+        self.similarity_threshold_image = 0.6 # threshold for image similarity matching
+        self.memory = [] # memory to store the achieved goal of the last step
+        
+
+# -----------------------------------------------------[ below function is for knowledge base retrieval]-------------------------------------------------------------------------
+
+    def _load_knowledge_base(self) -> List[Dict]:
+        """load knowledge base from json file and build faiss index if not exists"""
+        if os.path.exists(self.knowledge_base_json):
+            with open(self.knowledge_base_json, 'r') as f:
+                kb = json.load(f)
+                steps = kb.get('steps', [])
+                self.kb_steps = steps
+                
+                # 尝试加载已有索引，否则重新构建
+                index_path = self.knowledge_base_json.replace('.json', '_faiss.index')
+                embeddings_path = self.knowledge_base_json.replace('.json', '_embeddings.pkl')
+                
+                if os.path.exists(index_path) and os.path.exists(embeddings_path):
+                    # 检查知识库是否有更新（通过条目数量简单判断）
+                    with open(embeddings_path, 'rb') as pf:
+                        saved_data = pickle.load(pf)
+                        if saved_data.get('count') == len(steps):
+                            self.kb_index = faiss.read_index(index_path)
+                            self.kb_field_embeddings = saved_data['field_embeddings']
+                            self.kb_image_features = saved_data['image_features']
+                            logger.info(f"Loaded existing FAISS index with {self.kb_index.ntotal} entries")
+                            return steps
+                
+                # 索引不存在或已过期，重新构建
+                self._build_multimodal_index()
+                return steps
+        else:
+            logger.warning(f"Knowledge base JSON not found at {self.knowledge_base_json}")
+            self.kb_index = None
+            self.kb_field_embeddings = None
+            self.kb_image_features = None
+            return []    
+
+    def _get_text_normalized_embedding(self, text: str, description: str) -> np.ndarray:
+        if not text:
+            return np.zeros(3584)
+        
+        text = text.lower()  
+        text = re.sub(r'[^\w\s]', '', text)  
+        text = re.sub(r'\s+', ' ', text).strip() 
+
+        prefixed_text = description + text  
+        emb = self.embed_model.embed_query(prefixed_text) 
+        emb = np.array(emb)
+        norm = np.linalg.norm(emb)
+        if norm == 0:
+            return np.zeros(3584, dtype=np.float32)
+        emb_norm = emb / norm
+        if emb_norm.ndim == 1:
+            emb_norm = emb_norm.reshape(1, -1)
+
+        return emb_norm.astype(np.float32)
+
+    def _build_multimodal_index(self) -> None:
+        """
+        build FAISS index for multimodal knowledge base:
+        - store embeddings independently for each field (no concatenation, no addition)
+        - store image features separately
+        - calculate similarity separately and fuse weighted scores during retrieval
+        """
+        if not self.kb_steps:
+            self.kb_index = None
+            return
+        
+        logger.info(f"Building multimodal index for {len(self.kb_steps)} KB entries...")
+        
+        field_embeddings = {
+            'task': [],
+            'goal': [],
+            'memory': [],
+            'analysis': []
+        }
+        image_features = []
+        
+        for entry in self.kb_steps:
+            task_emb = self._get_text_normalized_embedding(entry.get('task', ''), description="任务描述：")
+            goal_emb = self._get_text_normalized_embedding(entry.get('step_goal', ''), description="步骤目标：")
+            memory_emb = self._get_text_normalized_embedding(entry.get('memory', ''), description="已执行步骤：")
+            analysis_emb = self._get_text_normalized_embedding(entry.get('screenshot_describe', ''), description="截屏分析：")
+            
+            screenshot_path = entry.get('screenshot', '')
+            if screenshot_path and os.path.exists(screenshot_path):
+                img_feature = self.screenshot_features_extractor._get_image_embedding(screenshot_path)
+            else:
+                img_feature = np.zeros(768, dtype=np.float32)
+            
+            field_embeddings['task'].append(task_emb.flatten())
+            field_embeddings['goal'].append(goal_emb.flatten())
+            field_embeddings['memory'].append(memory_emb.flatten())
+            field_embeddings['analysis'].append(analysis_emb.flatten())
+            image_features.append(img_feature.flatten())
+        
+        self.kb_field_embeddings = {k: np.array(v, dtype=np.float32) for k, v in field_embeddings.items()}
+        self.kb_image_features = np.array(image_features, dtype=np.float32)
+        
+        self.kb_field_indices = {}
+        for field_name, embeddings in self.kb_field_embeddings.items():
+            if embeddings.shape[0] > 0:
+                faiss.normalize_L2(embeddings)
+                index = faiss.IndexFlatIP(embeddings.shape[1])  
+                index.add(embeddings)
+                self.kb_field_indices[field_name] = index
+                logger.info(f"Built FAISS index for '{field_name}': {index.ntotal} vectors, dim={embeddings.shape[1]}")
+
+        if self.kb_image_features.shape[0] > 0:
+            faiss.normalize_L2(self.kb_image_features)
+            self.kb_image_index = faiss.IndexFlatIP(self.kb_image_features.shape[1])
+            self.kb_image_index.add(self.kb_image_features)
+            logger.info(f"Built FAISS index for images: {self.kb_image_index.ntotal} vectors, dim={self.kb_image_features.shape[1]}")
+
+        self._save_index()
+        logger.info(f"Multimodal index built successfully")
+
+    def _save_index(self) -> None:
+        base_path = self.knowledge_base_json.replace('.json', '')
+        
+        for field_name, index in self.kb_field_indices.items():
+            faiss.write_index(index, f"{base_path}_{field_name}.index")
+        
+        if hasattr(self, 'kb_image_index') and self.kb_image_index is not None:
+            faiss.write_index(self.kb_image_index, f"{base_path}_image.index")
+        
+        embeddings_path = f"{base_path}_embeddings.pkl"
+        with open(embeddings_path, 'wb') as f:
+            pickle.dump({
+                'count': len(self.kb_steps),
+                'field_embeddings': self.kb_field_embeddings,
+                'image_features': self.kb_image_features
+            }, f)
+        logger.info(f"Saved multimodal index to {base_path}_*.index")
+
+    def _save_knowledge_base_match(self, goal: str, memory: str, candidates: List[Dict], top_k: int) -> None:
+        """save the results of knowledge base matching"""
+        os.makedirs('match', exist_ok=True)
+        debug_info = {
+            'query': {
+                'task': self.task,
+                'goal': goal,
+                'memory': memory
+            },
+            'matches': [
+                {
+                    'task': c.get('task', ''),
+                    'goal': c.get('step_goal', ''),
+                    'score': c['score'],
+                    'memory': c.get('memory', ''),
+                    'analysis': c.get('screenshot_describe', ''),
+                    'screenshot': c.get('screenshot', '')
+                } for c in candidates[:top_k]
+            ]
+        }
+        if not os.path.exists('match'):
+            os.makedirs('match')
+        with open(f'match/matched_{self.n_steps}.json', 'w', encoding='utf-8') as f:
+            json.dump(debug_info, f, indent=2, ensure_ascii=False)
+
+    def _search_knowledge_base(
+        self, 
+        current_goal: str, 
+        current_memory: str, 
+        current_screenshot_path: str, 
+        current_screenshot_analysis: str,
+        top_k: int = 3
+    ) -> List[Dict]:
+        """
+        retrieve from multimodal knowledge base:
+        - calculate similarity for each field independently
+        - weighted fusion of scores to get final score
+        - return top-k results
+        """
+
+        if not hasattr(self, 'kb_field_indices') or not self.kb_field_indices:
+            logger.warning("Knowledge base indices not initialized")
+            return []
+        
+        n_entries = len(self.kb_steps)
+        if n_entries == 0:
+            return []
+        
+        # 解析current_memory, 其实际参数为self.short_memory
+
+
+        
+        combined_scores = np.zeros(n_entries, dtype=np.float32)
+        
+        weights = {
+            'task': 0.15,
+            'goal': 0.35,
+            'memory': 0.10,
+            'analysis': 0.15,
+            'image': 0.25
+        }
+        
+        query_texts = {
+            'task': (self.task, "任务描述："),
+            'goal': (current_goal, "步骤目标："),
+            'memory': (str(current_memory), "已执行步骤："),
+            'analysis': (current_screenshot_analysis, "截屏分析：")
+        }
+        
+        for field_name, (query_text, prefix) in query_texts.items():
+            if field_name not in self.kb_field_indices:
+                continue
+            
+            query_emb = self._get_text_normalized_embedding(query_text, description=prefix)
+            query_emb = query_emb.flatten().reshape(1, -1).astype(np.float32)
+            faiss.normalize_L2(query_emb)
+            
+            index = self.kb_field_indices[field_name]
+            scores, indices = index.search(query_emb, n_entries)
+            
+            for i, idx in enumerate(indices[0]):
+                if 0 <= idx < n_entries:
+                    combined_scores[idx] += weights[field_name] * scores[0][i]
+        
+        if hasattr(self, 'kb_image_index') and self.kb_image_index is not None:
+            if current_screenshot_path and os.path.exists(current_screenshot_path):
+                img_query = self.screenshot_features_extractor._get_image_embedding(current_screenshot_path)
+                img_query = img_query.flatten().reshape(1, -1).astype(np.float32)
+                faiss.normalize_L2(img_query)
+                
+                img_scores, img_indices = self.kb_image_index.search(img_query, n_entries)
+                
+                for i, idx in enumerate(img_indices[0]):
+                    if 0 <= idx < n_entries:
+                        combined_scores[idx] += weights['image'] * img_scores[0][i]
+        
+        sorted_indices = np.argsort(combined_scores)[::-1] 
+        
+        candidates = []
+        for idx in sorted_indices[:top_k]:
+            score = combined_scores[idx]
+            if score > self.similarity_threshold_text:  
+                entry = self.kb_steps[idx].copy()
+                entry['score'] = float(score)
+                candidates.append(entry)
+                logger.debug(f"KB match [{idx}]: score={score:.3f}, goal={entry.get('step_goal', '')[:50]}")
+        
+        self._save_knowledge_base_match( current_goal, str(current_memory), candidates, top_k)
+
+        return candidates
+
+    def point_position_transform(
+        self,
+        ref_image_path: str,
+        query_image_path: str,
+        ref_point: tuple,
+        target_size: tuple = (1000, 1000),
+        template_radius: int = 30,
+    ) -> tuple:
+        
+        def _template_matching_search(query_img, template, rel_x, rel_y):
+            """
+            search for the corresponding point in the query image using local template matching
+            the key is the point in the reference image, and we cut out a small region around this point as a template
+            """
+            query_gray = cv2.cvtColor(query_img, cv2.COLOR_BGR2GRAY)
+            template_gray = cv2.cvtColor(template, cv2.COLOR_BGR2GRAY)
+            
+            best_val = -1
+            best_loc = None
+            best_scale = 1.0
+            
+            # 多尺度搜索
+            scales = [0.9, 0.95, 1.0, 1.05, 1.1]
+            
+            for scale in scales:
+                if scale != 1.0:
+                    scaled_template = cv2.resize(template_gray, None, fx=scale, fy=scale)
+                else:
+                    scaled_template = template_gray
+                
+                # 确保模板不大于查询图像
+                if scaled_template.shape[0] > query_gray.shape[0] or scaled_template.shape[1] > query_gray.shape[1]:
+                    continue
+                
+                # 模板匹配
+                result = cv2.matchTemplate(query_gray, scaled_template, cv2.TM_CCOEFF_NORMED)
+                _, max_val, _, max_loc = cv2.minMaxLoc(result)
+                
+                if max_val > best_val:
+                    best_val = max_val
+                    best_loc = max_loc
+                    best_scale = scale
+            
+            if best_val < 0.5:  # 匹配阈值
+                logger.info(f"Warning: Low template match confidence: {best_val:.3f}")
+                return None
+            
+            logger.info(f"Template match: confidence={best_val:.3f}, scale={best_scale:.2f}")
+            
+            # 计算对应点坐标（模板左上角 + 相对偏移 * 缩放）
+            result_x = int(best_loc[0] + rel_x * best_scale)
+            result_y = int(best_loc[1] + rel_y * best_scale)
+            
+            return [result_x, result_y]
+
+        def _feature_matching_search(query_img, template, rel_x, rel_y, target_size):
+            """
+            search based on the local features with SIFT and FLANN (homography matrix)
+            """
+            query_gray = cv2.cvtColor(query_img, cv2.COLOR_BGR2GRAY)
+            template_gray = cv2.cvtColor(template, cv2.COLOR_BGR2GRAY)
+            
+            sift = cv2.SIFT_create(nfeatures=500)
+            
+            kp1, des1 = sift.detectAndCompute(template_gray, None)
+            kp2, des2 = sift.detectAndCompute(query_gray, None)
+            
+            if des1 is None or des2 is None or len(kp1) < 4 or len(kp2) < 4:
+                logger.info("Warning: Insufficient features for local matching")
+                return None
+            
+            FLANN_INDEX_KDTREE = 1
+            index_params = dict(algorithm=FLANN_INDEX_KDTREE, trees=5)
+            search_params = dict(checks=50)
+            flann = cv2.FlannBasedMatcher(index_params, search_params)
+            
+            matches = flann.knnMatch(des1, des2, k=2)
+            
+            good_matches = []
+            for match in matches:
+                if len(match) == 2:
+                    m, n = match
+                    if m.distance < 0.7 * n.distance:
+                        good_matches.append(m)
+            
+            if len(good_matches) < 4:
+                logger.info(f"Warning: Only {len(good_matches)} good matches in local region")
+                return None
+            
+            src_pts = np.float32([kp1[m.queryIdx].pt for m in good_matches]).reshape(-1, 1, 2)
+            dst_pts = np.float32([kp2[m.trainIdx].pt for m in good_matches]).reshape(-1, 1, 2)
+            
+            H, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 3.0)
+            
+            if H is None:
+                logger.info("Warning: Failed to compute local homography")
+                return None
+            
+            inliers = mask.ravel().sum() if mask is not None else 0
+            inlier_ratio = inliers / len(good_matches) if len(good_matches) > 0 else 0
+            match_score = min(len(good_matches) / 20.0, 1.0) 
+            confidence = inlier_ratio * match_score
+            
+            logger.info(f"Local feature match: matches={len(good_matches)}, inliers={inliers}, confidence={confidence:.3f}")
+            
+            ref_point_local = np.float32([[[rel_x, rel_y]]])
+            query_point = cv2.perspectiveTransform(ref_point_local, H)
+            
+            result_x = int(query_point[0][0][0])
+            result_y = int(query_point[0][0][1])
+            
+
+            if not (0 <= result_x < target_size[0] and 0 <= result_y < target_size[1]):
+                logger.info(f"Warning: Result point ({result_x}, {result_y}) out of bounds")
+                return None
+            
+            return [result_x, result_y]
+
+        def find_corresponding_point_by_local_template(
+            ref_image_path: str,
+            query_image_path: str,
+            ref_point: tuple,
+            target_size: tuple = (1000, 1000),
+            template_radius: int = 60,
+            search_method: str = "template", 
+        ) -> tuple:
+
+            ref_img = cv2.imread(ref_image_path)
+            query_img = cv2.imread(query_image_path)
+            
+            if ref_img is None or query_img is None:
+                print("Error: Unable to read images")
+                return None
+            
+            ref_img = cv2.resize(ref_img, target_size)
+            query_img = cv2.resize(query_img, target_size)
+            
+            x, y = ref_point
+            x1 = max(0, x - template_radius)
+            y1 = max(0, y - template_radius)
+            x2 = min(target_size[0], x + template_radius)
+            y2 = min(target_size[1], y + template_radius)
+            
+            template = ref_img[y1:y2, x1:x2]
+            
+            if template.size == 0:
+                print("Error: Template extraction failed")
+                return None
+            
+            rel_x = x - x1
+            rel_y = y - y1
+            
+            if search_method == "template":
+                result_point = _template_matching_search(query_img, template, rel_x, rel_y)
+            elif search_method == "feature":
+                result_point = _feature_matching_search(query_img, template, rel_x, rel_y, target_size)
+            else:
+                print(f"Error: In {__file__}/{inspect.currentframe().f_code.co_name}() function, Unknown search method: {search_method}")
+                return None
+            
+            return result_point
+
+        result = find_corresponding_point_by_local_template(
+            ref_image_path, query_image_path, ref_point,
+            target_size=target_size,
+            template_radius=template_radius,
+            search_method="template"
+        )
+        
+        if result is not None:
+            return result
+        
+        result = find_corresponding_point_by_local_template(
+            ref_image_path, query_image_path, ref_point,
+            target_size=target_size,
+            template_radius=template_radius,
+            search_method="feature"
+        )
+        
+        return result
+    
+# -----------------------------------------------------[ above function is for knowledge base retrieval]-------------------------------------------------------------------------
 
     def _set_model_names(self) -> None:
         self.chat_model_library = self.llm.__class__.__name__
@@ -224,7 +671,6 @@ class Agent:
                 if r.current_app_pid:
                     latest_pid = r.current_app_pid
         return latest_pid
-
 
     def _update_short_memory(self) -> None:
         """
@@ -396,6 +842,44 @@ class Agent:
             self.next_goal = parsed['current_state']['next_goal']
             self.current_state = parsed['current_state']
 
+            logger.info(f"Brain response: {parsed}")
+
+            # ------------[ add for knowledge base retrieval ]----------------1
+            self.current_screenshot_analysis = parsed['analysis']['analysis']
+            self.task_progress = parsed['current_state']['task_progress']
+
+            self.kb_match = self._search_knowledge_base(self.next_goal, self.memory, current_screenshot_path, self.current_screenshot_analysis)
+            self.memory.append(self.next_goal)
+
+            logger.info(f"self.next_goal: {self.next_goal} \n \
+                         self.current_state: {self.current_state} \n \
+                         self.kb_match: {self.kb_match} \n \
+                         self.short_memory: {self.short_memory} \n \
+                         current_screenshot_path: {current_screenshot_path}")
+            
+            if self.kb_match:
+                converted_actions = []
+                for act in self.kb_match[0]['actions']:
+                    action_name = act['action']
+                    params = act['parameters'] # just for action:”Click“，the paramentsers style is："parameters": {"position": [489,163]}
+                    if action_name == 'Click':
+                        logger.info(f"Original action parameters before transformation: {params}")
+                        params['position'] = self.point_position_transform(ref_image_path=self.kb_match[0]['screenshot'], query_image_path=current_screenshot_path, ref_point=params['position']) 
+                        logger.info(f"Transformed action parameters after transformation: {params}")
+                    converted_actions.append({action_name: params})
+
+                if 'position' in params and params['position'] is None:
+                    self.kb_match = None
+                    self.kb_match_actions = None
+                    self.kb_match_screenshot = None
+                    logger.debug(f"Knowledge base match found, but position could not be located on the current screen.")
+
+                self.kb_match_actions = converted_actions
+                self.kb_match_screenshot = self.kb_match[0]['screenshot']
+
+                logger.info(f"Knowledge base match actions: {self.kb_match_actions}")
+                logger.info(f"Knowledge base match found for goal '{self.next_goal}' with screenshot '{self.kb_match_screenshot}'")
+
         except Exception as e:
             logger.exception("[Brain] Unexpected error in brain_step.")
             return {"Brain_text": {"step_evaluate": "unknown", "reason": str(e)}}
@@ -459,6 +943,26 @@ class Agent:
                         "image_url": {"url": screenshot_to_dataurl(self.screenshot_annotated)},
                     }
                 ]
+            
+            if self.kb_match:
+                kb_context_text = "The first screenshot is what you need to achieve your goal, the second one is the similar case from knowledge base. \
+                    You may consider how the actions are taken for the second screenshot in the similar step, generate your actions to achieve the goal:\n"
+                actions = [self.ActionModel(**action) for action in self.kb_match_actions]
+                kb_context_text += f"The similar case:\n \
+                        Task: {self.kb_match[0]['task']}\n \
+                        Goal: {self.kb_match[0]['step_goal']}\n \
+                        Memory: {self.kb_match[0]['memory']}\n \
+                        Actions:\n{actions}\n\n"
+                logger.info(f"Actions from KB match: {actions} ")
+                kb_screenshot_dataurl = screenshot_to_dataurl(Image.open(self.kb_match_screenshot))
+                state_content[0]["content"] += f"\n\n{kb_context_text}"
+                state_content.append({
+                    "type": "image_url",
+                    "image_url": {"url": kb_screenshot_dataurl},
+                })  
+            else:
+                logger.debug("No KB candidates found with score > 90%.")
+            
             self.actor_message_manager._remove_last_AIntool_message()
             self.actor_message_manager._remove_last_state_message()
             self.actor_message_manager.add_state_message(state_content, step_info = step_info)
@@ -570,7 +1074,6 @@ class Agent:
         self._log_response(parsed)
         return parsed, record
     
-
     def _log_response(self, response: AgentOutput) -> None:
         if 'Success' in self.current_state["step_evaluate"]:
             emoji = '✅'

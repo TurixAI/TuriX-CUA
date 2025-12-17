@@ -3,27 +3,43 @@
 
   "brain_llm": {
     "provider": "turix",
-    "model_name": "turix-model",
-    "api_key": "your_api_key_here",
-    "base_url": "https://llm.turixapi.io/v1" 
+    "model_name": "turix-large-0.4",
+    "base_url": "http://180.184.54.179:8002/v1",
+    "api_key": "your_api_key_here"
   },
 
   "actor_llm": {
     "provider": "turix",
-    "model_name": "turix-model",
-    "api_key": "your_api_key_here",
-    "base_url": "https://llm.turixapi.io/v1" 
+    "model_name": "turix-large-0.4",
+    "base_url": "http://180.184.54.179:8002/v1",
+    "api_key": "your_api_key_here"
   },
 
   "planner_llm": {
     "provider": "turix",
-    "model_name": "turix-model",
-    "api_key": "your_api_key_here",
-    "base_url": "https://llm.turixapi.io/v1" 
+    "model_name": "turix-large-0.4",
+    "base_url": "http://180.184.54.179:8002/v1",
+    "api_key": "your_api_key_here"
+  },
+
+  "screenshot_features_extractor": {
+    "img_size": 512,
+    "pretrained": true,
+    "feature_dim": 768,
+    "weight_path": "src/dinov3/weights/dinov3_vitb16_pretrain_lvd1689m-73cec8be.pth"
+  },
+
+  "embed_llm": {
+    "provider": "openai",
+    "model_name": "GTE_7b",
+    "base_url": "http://180.184.54.179:8012/v1",
+    "api_key": "YOUR_API_KEY",
+    "max_retries": 3,
+    "timeout": 30
   },
 
   "agent": {
-    "task": "open Chrome, go to github, and search for turix-cua in the github webpage. Enter the TuriX-CUA repository, and star it.",
+    "task": "用safari去苹果官网帮我找到手机iphone 手机的最新价格信息，用record_info进行记录（型号和价格），然后写成一个pages文档,保存成pdf文件，重命名后保存到桌面 然后用微信发给 pyk",
     "short_memory_len": 5,
     "use_ui": false,
     "max_actions_per_step": 5,
@@ -32,6 +48,7 @@
     "save_brain_conversation_path": "brain_llm_interactions.log",
     "save_actor_conversation_path": "actor_llm_interactions.log",
     "save_actor_conversation_path_encoding": "utf-8",
-    "save_brain_conversation_path_encoding": "utf-8"
+    "save_brain_conversation_path_encoding": "utf-8",
+    "knowledge_base_json": "knowledge_base.json"
   }
 }
