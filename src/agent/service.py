@@ -494,7 +494,7 @@ class Agent:
             
             if best_val < 0.5:  
                 logger.info(f"Warning: Low template match confidence: {best_val:.3f}")
-                return None
+                return [rel_x, rel_y]
             
             logger.info(f"Template match: confidence={best_val:.3f}, scale={best_scale:.2f}")
             
@@ -535,7 +535,7 @@ class Agent:
             
             if len(good_matches) < 4:
                 logger.info(f"Warning: Only {len(good_matches)} good matches in local region")
-                return None
+                return [rel_x, rel_y]
             
             src_pts = np.float32([kp1[m.queryIdx].pt for m in good_matches]).reshape(-1, 1, 2)
             dst_pts = np.float32([kp2[m.trainIdx].pt for m in good_matches]).reshape(-1, 1, 2)
@@ -544,7 +544,7 @@ class Agent:
             
             if H is None:
                 logger.info("Warning: Failed to compute local homography")
-                return None
+                return [rel_x, rel_y]
             
             inliers = mask.ravel().sum() if mask is not None else 0
             inlier_ratio = inliers / len(good_matches) if len(good_matches) > 0 else 0
@@ -562,7 +562,7 @@ class Agent:
 
             if not (0 <= result_x < target_size[0] and 0 <= result_y < target_size[1]):
                 logger.info(f"Warning: Result point ({result_x}, {result_y}) out of bounds")
-                return None
+                return [rel_x, rel_y]
             
             return [result_x, result_y]
 
@@ -595,7 +595,7 @@ class Agent:
             
             if template.size == 0:
                 print("Error: Template extraction failed")
-                return None
+                return [x, y]
             
             rel_x = x - x1
             rel_y = y - y1
@@ -606,7 +606,7 @@ class Agent:
                 result_point = _feature_matching_search(query_img, template, rel_x, rel_y, target_size)
             else:
                 print(f"Error: In {__file__}/{inspect.currentframe().f_code.co_name}() function, Unknown search method: {search_method}")
-                return None
+                return [x, y]
             
             return result_point
 
