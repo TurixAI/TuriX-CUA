@@ -861,12 +861,6 @@ class Agent:
                         logger.info(f"Transformed action parameters after transformation: {params}")
                     converted_actions.append({action_name: params})
 
-                if 'position' in params and params['position'] is None:
-                    self.kb_match = None
-                    self.kb_match_actions = None
-                    self.kb_match_screenshot = None
-                    logger.debug(f"Knowledge base match found, but position could not be located on the current screen.")
-
                 self.kb_match_actions = converted_actions
                 self.kb_match_screenshot = self.kb_match[0]['screenshot']
 
