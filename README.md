@@ -274,6 +274,26 @@ For a local Ollama setup, point each role to your Ollama server:
    }
 ```
 
+For a MiniMax setup (text‑only — ideal for memory and planner roles):
+```json
+"memory_llm": {
+      "provider": "minimax",
+      "model_name": "MiniMax-M2.5",
+      "api_key": "YOUR_MINIMAX_API_KEY"
+   },
+"planner_llm": {
+      "provider": "minimax",
+      "model_name": "MiniMax-M2.5",
+      "api_key": "YOUR_MINIMAX_API_KEY"
+   }
+```
+
+Available MiniMax models: `MiniMax-M2.5` (default) and `MiniMax-M2.5-highspeed` (faster).
+Set `MINIMAX_API_KEY` env var or pass `api_key` in config.
+MiniMax uses the OpenAI‑compatible endpoint at `https://api.minimax.io/v1` (overseas) or `https://api.minimaxi.com/v1` (China mainland).
+
+> **Note:** MiniMax models are text‑only and do not support vision. Use them for `memory_llm` / `planner_llm`. For `brain_llm` / `actor_llm`, use a vision‑capable model (TuriX, Gemini, etc.).
+
 #### 4.3 Configure Custom Models (Optional)
 
 If you want to use other models not defined by the build_llm function in the main.py, you need to first define it, then setup the config.

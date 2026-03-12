@@ -221,12 +221,13 @@ def build_llm(cfg: dict, *, enable_thinking: bool | None = None):
         )
 
     if provider == "minimax":
+        minimax_api_key = api_key or os.getenv("MINIMAX_API_KEY")
         return build_openai_compatible_llm(
-            model_name=model_name,
-            api_key=api_key,
-            base_url=base_url or "https://api.minimax.chat/v1",
-            temperature=0.1,
-            supports_tool_calling=False,
+            model_name=model_name or "MiniMax-M2.5",
+            api_key=minimax_api_key,
+            base_url=base_url or "https://api.minimax.io/v1",
+            temperature=1.0,
+            supports_tool_calling=True,
             supports_response_format=False,
             model_kwargs=model_kwargs,
             max_tokens=max_tokens,

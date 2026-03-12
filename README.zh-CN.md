@@ -277,6 +277,26 @@ osascript -e 'tell application "Safari" to do JavaScript "alert("Triggering acce
    }
 ```
 
+如果要使用 MiniMax（纯文本模型，适用于 memory 和 planner 角色）：
+```json
+"memory_llm": {
+      "provider": "minimax",
+      "model_name": "MiniMax-M2.5",
+      "api_key": "YOUR_MINIMAX_API_KEY"
+   },
+"planner_llm": {
+      "provider": "minimax",
+      "model_name": "MiniMax-M2.5",
+      "api_key": "YOUR_MINIMAX_API_KEY"
+   }
+```
+
+可用的 MiniMax 模型：`MiniMax-M2.5`（默认）和 `MiniMax-M2.5-highspeed`（更快速）。
+通过环境变量 `MINIMAX_API_KEY` 或在配置中传入 `api_key`。
+MiniMax 使用 OpenAI 兼容接口，海外端点为 `https://api.minimax.io/v1`，国内端点为 `https://api.minimaxi.com/v1`。
+
+> **注意：** MiniMax 模型仅支持文本，不支持视觉功能。请将其用于 `memory_llm` / `planner_llm`。`brain_llm` / `actor_llm` 需要使用支持视觉的模型（如 TuriX、Gemini 等）。
+
 #### 4.3 配置自定义模型（可选）
 
 如果你想使用 build_llm 函数中未定义的其他模型，需要先在代码中定义，再在配置中设置。
