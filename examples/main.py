@@ -129,6 +129,13 @@ def register_force_stop_hotkey(
     listener.start()
     return listener
 
+
+def configure_llm_capabilities(llm, *, supports_tool_calling: bool, supports_response_format: bool):
+    setattr(llm, "_turix_supports_tool_calling", supports_tool_calling)
+    setattr(llm, "_turix_supports_response_format", supports_response_format)
+    return llm
+
+
 def cleanup_previous_runs(working_dir_base: str):
     """Clean up logs and screenshots from previous runs, moving certain files to a working directory."""
     # Files to move and delete
@@ -331,7 +338,14 @@ def build_llm(cfg: dict, *, enable_thinking: bool | None = None):
         ollama_kwargs = {"model": model, "temperature": temperature}
         if base_url:
             ollama_kwargs["base_url"] = base_url
-        return ChatOllama(**ollama_kwargs)
+        llm = ChatOllama(**ollama_kwargs)
+        return configure_llm_capabilities(
+            llm,
+            supports_tool_calling=bool(cfg.get("supports_tool_calling", True)),
+            # Disabled by default because some Ollama model/runtime combos fail with:
+            # "failed to load model vocabulary required for format"
+            supports_response_format=bool(cfg.get("supports_response_format", False)),
+        )
 
     raise ValueError(f"Unknown llm provider '{provider}'")
 
