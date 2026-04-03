@@ -35,8 +35,8 @@
 
   "agent": {
     "task": "open Chrome, go to github, and search for turix-cua in the github webpage. Enter the TuriX-CUA repository, and star it.",
-    "memory_budget": 2000,
-    "summary_memory_budget": 8000,
+    "memory_budget_tokens": 2000,
+    "summary_memory_budget_tokens": 8000,
     "use_search": false,
     "use_skills": true,
     "skills_dir": "skills",

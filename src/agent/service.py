@@ -5,6 +5,7 @@ import io
 import json
 import logging
 import os
+import tempfile
 from pathlib import Path
 import re
 from datetime import datetime
@@ -50,6 +51,7 @@ from src.utils.skills import (
 from src.agent.planner_service import Planner
 from src.controller.service import Controller
 from src.utils import time_execution_async
+from src.utils.token_counter import TokenCounter
 from src.agent.output_schemas import OutputSchemas
 from src.agent.structured_llm import *
 
@@ -59,6 +61,8 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T", bound=BaseModel)
 
 TASK_ID_MAX_LEN = 60
+MAX_PENDING_LINES = 20
+MAX_BRAIN_CONTEXT_ENTRIES = 50
 
 
 def _task_to_slug(task: str, max_len: int = TASK_ID_MAX_LEN) -> str:
@@ -242,10 +246,6 @@ class Agent:
         else:
             self.images_dir = "images"
             self.save_temp_file_path = os.path.join(os.path.dirname(__file__), "temp_files")
-        self.memory_budget = memory_budget
-        self.summary_memory_budget = (
-            summary_memory_budget if summary_memory_budget is not None else max(1, memory_budget * 4)
-        )
         self.original_task = task
         self.resume = resume
         self.memory_llm = to_structured(memory_llm, OutputSchemas.MEMORY_RESPONSE_FORMAT, MemoryOutput)
@@ -253,6 +253,18 @@ class Agent:
         self.actor_llm = to_structured(actor_llm, OutputSchemas.ACTION_RESPONSE_FORMAT, ActorOutput)
         self.planner_llm_raw = planner_llm
         self.planner_llm = to_structured(planner_llm, OutputSchemas.PLANNER_RESPONSE_FORMAT, PlannerOutput)
+        self.token_counter = TokenCounter(brain_llm)
+        self.memory_budget_tokens = max(1, int(memory_budget))
+        default_summary_budget = max(1, self.memory_budget_tokens * 4)
+        self.summary_memory_budget_tokens = max(
+            1,
+            int(summary_memory_budget) if summary_memory_budget is not None else default_summary_budget,
+        )
+        # Backward-compatible aliases used by older run artifacts/config assumptions.
+        self.memory_budget = self.memory_budget_tokens
+        self.summary_memory_budget = self.summary_memory_budget_tokens
+        self.memory_warn_ratio = 0.7
+        self.memory_hard_ratio = 1.0
 
         self.save_actor_conversation_path = save_actor_conversation_path
         self.save_actor_conversation_path_encoding = save_actor_conversation_path_encoding
@@ -360,6 +372,8 @@ class Agent:
         self.brain_memory = ""
         self.summary_memory = ""
         self.recent_memory = ""
+        # Pending step lines are finalized in the next brain step.
+        self.pending_recent_memory = ""
         self.memory_snapshot_files: list[dict[str, Any]] = []
         self.infor_memory = []
         self.last_pid = None
@@ -400,10 +414,93 @@ class Agent:
     def _refresh_brain_memory(self) -> None:
         parts = []
         if self.summary_memory:
-            parts.append("Summarized memory:\n" + self.summary_memory)
+            parts.append(
+                "Summarized memory (compressed from earlier steps, details may be approximate):\n"
+                + self.summary_memory
+            )
         if self.recent_memory:
             parts.append("Recent steps:\n" + self.recent_memory)
+        if self.pending_recent_memory:
+            parts.append("Pending steps (not yet evaluated):\n" + self.pending_recent_memory)
         self.brain_memory = "\n\n".join(parts).strip()
+
+    @property
+    def total_memory_tokens(self) -> int:
+        return (
+            self.token_counter.count(self.summary_memory)
+            + self.token_counter.count(self.recent_memory)
+            + self.token_counter.count(self.pending_recent_memory)
+        )
+
+    def _log_memory_metrics(self) -> None:
+        logger.info(
+            "[Memory] Step %d | recent=%d tokens | summary=%d tokens | pending=%d tokens | total=%d/%d tokens | info_files=%d",
+            self.n_steps,
+            self.token_counter.count(self.recent_memory),
+            self.token_counter.count(self.summary_memory),
+            self.token_counter.count(self.pending_recent_memory),
+            self.total_memory_tokens,
+            self.memory_budget_tokens + self.summary_memory_budget_tokens,
+            len(self.infor_memory),
+        )
+
+    def _is_summary_valid(self, original_text: str, summary_text: str, tier: str) -> bool:
+        summary_tokens = self.token_counter.count(summary_text)
+        original_tokens = self.token_counter.count(original_text)
+
+        if summary_tokens < 10:
+            logger.warning(
+                "[Memory] %s summary too short (%d tokens). Keeping original.",
+                tier,
+                summary_tokens,
+            )
+            return False
+        if original_tokens > 0 and summary_tokens >= original_tokens:
+            logger.warning(
+                "[Memory] %s summary (%d tokens) not shorter than original (%d tokens). Keeping original.",
+                tier,
+                summary_tokens,
+                original_tokens,
+            )
+            return False
+        return True
+
+    def _extract_response_token_usage(self, response: Any) -> tuple[Optional[int], Optional[int], Optional[int]]:
+        usage_candidates = []
+        response_metadata = getattr(response, "response_metadata", None)
+        if isinstance(response_metadata, dict):
+            usage_candidates.append(response_metadata.get("token_usage"))
+            usage_candidates.append(response_metadata.get("usage"))
+        usage_metadata = getattr(response, "usage_metadata", None)
+        if isinstance(usage_metadata, dict):
+            usage_candidates.append(usage_metadata)
+        if isinstance(response, dict):
+            usage_candidates.append(response.get("token_usage"))
+            usage_candidates.append(response.get("usage"))
+
+        usage = next((item for item in usage_candidates if isinstance(item, dict)), {})
+        if not isinstance(usage, dict):
+            return None, None, None
+
+        def _to_int(value: Any) -> Optional[int]:
+            try:
+                return int(value) if value is not None else None
+            except (TypeError, ValueError):
+                return None
+
+        prompt_tokens = _to_int(usage.get("prompt_tokens"))
+        if prompt_tokens is None:
+            prompt_tokens = _to_int(usage.get("input_tokens"))
+
+        completion_tokens = _to_int(usage.get("completion_tokens"))
+        if completion_tokens is None:
+            completion_tokens = _to_int(usage.get("output_tokens"))
+
+        total_tokens = _to_int(usage.get("total_tokens"))
+        if total_tokens is None:
+            total_tokens = self.token_counter.count_from_api_usage(response)
+
+        return prompt_tokens, completion_tokens, total_tokens
 
     def _extract_memory_payload(self, response: Any) -> dict:
         parsed = getattr(response, "parsed", None)
@@ -429,6 +526,30 @@ class Agent:
         self.memory_message_manager.add_state_message(memory_content)
         memory_messages = self.memory_message_manager.get_messages()
         response = await self.memory_llm.ainvoke(memory_messages)
+        prompt_tokens, completion_tokens, total_tokens = self._extract_response_token_usage(response)
+        estimate_tokens = self.token_counter.count(memory_text)
+        if total_tokens:
+            logger.info(
+                "[Memory] Summary call (%s) token usage | prompt=%s output=%s total=%s estimate_input=%d",
+                context_label,
+                prompt_tokens if prompt_tokens is not None else "?",
+                completion_tokens if completion_tokens is not None else "?",
+                total_tokens,
+                estimate_tokens,
+            )
+        if prompt_tokens is not None:
+            logger.debug(
+                "[Memory] Input token estimate delta (%s): estimate=%d, prompt=%d, delta=%d",
+                context_label,
+                estimate_tokens,
+                prompt_tokens,
+                estimate_tokens - prompt_tokens,
+            )
+        if completion_tokens is not None and completion_tokens > max(128, self.memory_budget_tokens // 2):
+            logger.warning(
+                "[Memory] Summary output is large (%d tokens). Compression quality may be poor.",
+                completion_tokens,
+            )
         parsed = self._extract_memory_payload(response)
         summary = str(parsed.get("summary", "")).strip()
         file_name = str(parsed.get("file_name", "")).strip()
@@ -480,6 +601,9 @@ class Agent:
             logger.warning("[Memory] Empty summary from memory model; keeping recent memory.")
             self._refresh_brain_memory()
             return
+        if not self._is_summary_valid(self.recent_memory, summary, tier="Recent"):
+            self._refresh_brain_memory()
+            return
 
         if self.summary_memory:
             self.summary_memory = "\n".join([self.summary_memory, summary]).strip()
@@ -492,7 +616,7 @@ class Agent:
     async def _summarise_summary_memory(self, step_override: Optional[int] = None) -> None:
         if not self.summary_memory:
             return
-        if len(self.summary_memory) <= self.summary_memory_budget:
+        if self.token_counter.count(self.summary_memory) <= self.summary_memory_budget_tokens:
             return
         try:
             summary, file_name = await self._run_memory_summary(
@@ -509,6 +633,9 @@ class Agent:
             logger.warning("[Memory] Empty high-level summary; keeping existing summaries.")
             self._refresh_brain_memory()
             return
+        if not self._is_summary_valid(self.summary_memory, summary, tier="Higher-level"):
+            self._refresh_brain_memory()
+            return
         self.summary_memory = summary
         self._refresh_brain_memory()
 
@@ -521,14 +648,20 @@ class Agent:
             return
         current_state = self.brain_context[sorted_steps[0]]["current_state"]
         step_goal = current_state["next_goal"] if current_state else None
-        evaluation = current_state["step_evaluate"] if current_state else None
+        step_id = sorted_steps[0]
 
-        line = f"Step {sorted_steps[0]} | Eval: {evaluation} | Goal: {step_goal}"
-        self.recent_memory = "\n".join([ln for ln in [self.recent_memory, line] if ln]).strip()
-        if len(self.recent_memory) > self.memory_budget:
-            await self._summarise_recent_memory()
-        else:
-            self._refresh_brain_memory()
+        # Always write the current step as pending. The success/failed signal for step N
+        # arrives in brain_step() of step (N+1). Pending lines do not count toward budget.
+        line = f"Step {step_id} | Eval: pending | Goal: {step_goal}"
+        pending_lines = [ln for ln in self.pending_recent_memory.splitlines() if ln.strip()]
+        pending_lines = [ln for ln in pending_lines if not ln.startswith(f"Step {step_id} |")]
+        pending_lines.append(line)
+        if len(pending_lines) > MAX_PENDING_LINES:
+            pending_lines = pending_lines[-MAX_PENDING_LINES:]
+            logger.warning("[Memory] Trimmed pending memory to last %d lines.", MAX_PENDING_LINES)
+        self.pending_recent_memory = "\n".join(pending_lines).strip()
+        self._refresh_brain_memory()
+        self._log_memory_metrics()
 
     def save_memory(self) -> None:
         """Save the current memory to a file."""
@@ -543,19 +676,34 @@ class Agent:
             "brain_context": self.brain_context,
             "step": self.n_steps,
             "summary_memory": self.summary_memory,
+            "pending_recent_memory": self.pending_recent_memory,
             "recent_memory": self.recent_memory,
-            "summary_memory_budget": self.summary_memory_budget,
+            "memory_budget_tokens": self.memory_budget_tokens,
+            "summary_memory_budget_tokens": self.summary_memory_budget_tokens,
+            # Backward-compatible fields
+            "memory_budget": self.memory_budget_tokens,
+            "summary_memory_budget": self.summary_memory_budget_tokens,
+            "recent_memory_tokens": self.token_counter.count(self.recent_memory),
+            "summary_memory_tokens": self.token_counter.count(self.summary_memory),
+            "pending_memory_tokens": self.token_counter.count(self.pending_recent_memory),
+            "total_memory_tokens": self.total_memory_tokens,
             "memory_snapshot_files": self.memory_snapshot_files,
         }
         file_name = os.path.join(self.save_temp_file_path, "memory.jsonl")
-        os.makedirs(os.path.dirname(file_name), exist_ok=True) if os.path.dirname(file_name) else None
-        with open(file_name, "w", encoding=self.save_brain_conversation_path_encoding) as f:
-            if os.path.getsize(file_name) > 0:
-                f.truncate(0)
-            f.write(
-                json.dumps(data, ensure_ascii=False, default=lambda o: list(o) if isinstance(o, set) else o)
-                + "\n"
-            )
+        dir_name = os.path.dirname(file_name)
+        if dir_name:
+            os.makedirs(dir_name, exist_ok=True)
+        fd, tmp_path = tempfile.mkstemp(dir=dir_name, suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w", encoding=self.save_brain_conversation_path_encoding) as f:
+                f.write(json.dumps(data, ensure_ascii=False, default=lambda o: list(o) if isinstance(o, set) else o) + "\n")
+                # f.flush()
+                # os.fsync(f.fileno())
+            os.replace(tmp_path, file_name)
+        except Exception:
+            logger.exception("[Memory] Failed to save memory.")
+            if os.path.exists(tmp_path):
+                os.unlink(tmp_path)
 
     async def load_memory(self) -> None:
         """Load the current memory from a file."""
@@ -573,17 +721,50 @@ class Agent:
                 self.brain_context = data.get("brain_context", OrderedDict())
                 if self.brain_context:
                     self.brain_context = OrderedDict({int(k): v for k, v in self.brain_context.items()})
+                    while len(self.brain_context) > MAX_BRAIN_CONTEXT_ENTRIES:
+                        self.brain_context.popitem(last=False)
                 self.summary_memory = data.get("summary_memory", "")
+                self.pending_recent_memory = data.get("pending_recent_memory", "")
                 self.recent_memory = data.get("recent_memory", "")
-                self.summary_memory_budget = data.get("summary_memory_budget", self.summary_memory_budget)
+                self.memory_budget_tokens = data.get(
+                    "memory_budget_tokens",
+                    data.get("memory_budget", self.memory_budget_tokens),
+                )
+                self.summary_memory_budget_tokens = data.get(
+                    "summary_memory_budget_tokens",
+                    data.get("summary_memory_budget", self.summary_memory_budget_tokens),
+                )
+                self.memory_budget_tokens = max(1, int(self.memory_budget_tokens))
+                self.summary_memory_budget_tokens = max(1, int(self.summary_memory_budget_tokens))
+                self.memory_budget = self.memory_budget_tokens
+                self.summary_memory_budget = self.summary_memory_budget_tokens
+                self.n_steps = int(data.get("step", 1))
                 self.memory_snapshot_files = data.get("memory_snapshot_files", [])
+                # Back-compat: older runs may have stored pending lines in recent_memory.
+                if self.recent_memory:
+                    recent_lines = [ln for ln in self.recent_memory.splitlines() if ln.strip()]
+                    keep_recent: list[str] = []
+                    move_pending: list[str] = []
+                    for ln in recent_lines:
+                        if "| Eval: pending |" in ln:
+                            move_pending.append(ln)
+                        else:
+                            keep_recent.append(ln)
+                    if move_pending:
+                        self.pending_recent_memory = "\n".join(
+                            [ln for ln in [self.pending_recent_memory, "\n".join(move_pending)] if ln]
+                        ).strip()
+                        self.recent_memory = "\n".join(keep_recent).strip()
+                pending_lines = [ln for ln in self.pending_recent_memory.splitlines() if ln.strip()]
+                if len(pending_lines) > MAX_PENDING_LINES:
+                    self.pending_recent_memory = "\n".join(pending_lines[-MAX_PENDING_LINES:]).strip()
                 if "summary_memory" not in data and "recent_memory" not in data:
                     await self._rebuild_memory_from_context()
                 else:
                     self._refresh_brain_memory()
+                self._log_memory_metrics()
                 self.last_step_action = data.get("last_step_action", None)
                 self.next_goal = data.get("next_goal", "")
-                self.n_steps = data.get("step", 1)
                 logger.info("Loaded memory from %s", file_name)
 
     async def _rebuild_memory_from_context(self) -> None:
@@ -596,9 +777,10 @@ class Agent:
             step_goal = current_state.get("next_goal")
             line = f"Step {step_id} | Eval: {evaluation} | Goal: {step_goal}"
             self.recent_memory = "\n".join([ln for ln in [self.recent_memory, line] if ln]).strip()
-            if len(self.recent_memory) > self.memory_budget:
+            if self.token_counter.count(self.recent_memory) > self.memory_budget_tokens:
                 await self._summarise_recent_memory(step_override=step_id)
         self._refresh_brain_memory()
+        self._log_memory_metrics()
 
     @time_execution_async("--brain_step")
     async def brain_step(self) -> dict:
@@ -690,9 +872,58 @@ class Agent:
                 raise ValueError("Brain response missing required fields after read-files handling.")
             self._save_brain_conversation(brain_messages, parsed, step=self.n_steps)
             self.brain_context[self.n_steps] = parsed
+            while len(self.brain_context) > MAX_BRAIN_CONTEXT_ENTRIES:
+                self.brain_context.popitem(last=False)
             self.next_goal = parsed["current_state"]["next_goal"]
             self.brain_thought = parsed["analysis"]
             self.current_state = parsed["current_state"]
+
+            # Finalize the previous step's memory line based on this response's evaluation signal.
+            # Keep step N in pending_recent_memory until step (N+1) arrives, so it won't be summarized away.
+            if prev_step_id >= 1:
+                raw_eval = str(self.current_state.get("step_evaluate", "")).lower()
+                if "success" in raw_eval:
+                    final_status = "success"
+                elif "fail" in raw_eval:
+                    final_status = "failed"
+                else:
+                    final_status = "pending"
+
+                pending_lines = [ln for ln in self.pending_recent_memory.splitlines() if ln.strip()]
+                new_pending: list[str] = []
+                goal_text: Optional[str] = None
+                for ln in pending_lines:
+                    if ln.startswith(f"Step {prev_step_id} |"):
+                        if "| Goal: " in ln:
+                            goal_text = ln.split("| Goal: ", 1)[1].strip()
+                        continue
+                    new_pending.append(ln)
+                self.pending_recent_memory = "\n".join(new_pending).strip()
+
+                if goal_text is not None:
+                    final_line = f"Step {prev_step_id} | Eval: {final_status} | Goal: {goal_text}"
+                    recent_lines = [ln for ln in self.recent_memory.splitlines() if ln.strip()]
+                    recent_lines = [ln for ln in recent_lines if not ln.startswith(f"Step {prev_step_id} |")]
+                    recent_lines.append(final_line)
+                    self.recent_memory = "\n".join(recent_lines).strip()
+                    recent_tokens = self.token_counter.count(self.recent_memory)
+                    hard_limit = int(self.memory_budget_tokens * self.memory_hard_ratio)
+                    warn_limit = int(self.memory_budget_tokens * self.memory_warn_ratio)
+                    if recent_tokens > hard_limit:
+                        await self._summarise_recent_memory(step_override=prev_step_id)
+                    elif recent_tokens > warn_limit:
+                        logger.info(
+                            "[Memory] Recent memory at %.0f%% of budget (%d/%d tokens). Compression will trigger soon.",
+                            (recent_tokens / self.memory_budget_tokens) * 100,
+                            recent_tokens,
+                            self.memory_budget_tokens,
+                        )
+                        self._refresh_brain_memory()
+                    else:
+                        self._refresh_brain_memory()
+                else:
+                    self._refresh_brain_memory()
+            self._log_memory_metrics()
 
         except Exception as e:
             logger.exception("[Brain] Unexpected error in brain_step.")

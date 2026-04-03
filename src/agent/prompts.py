@@ -149,10 +149,10 @@ while retaining all critical information that may be useful for future reference
 - You may receive either recent-step memory or accumulated summaries; summarize the provided text as-is.
 - Always output a string of memory without useless words, and adhere strictly to JSON output format:
 {{
-    "summary": "Concise summary of recent actions and important information for future reference",
+    "summary": "Structured summary following the sections above",
     "file_name": "short_descriptive_name.txt"
 }}
-- The `file_name` must be a short summary ending in `.txt` and must not include any path.
+- `file_name` must be short, end with `.txt`, and contain no path.
             """
         )
 
