@@ -142,12 +142,21 @@ class MemoryPrompt:
         return SystemMessage(
             content=f"""
 SYSTEM PROMPT FOR MEMORY MODEL:
-=== GLOBAL INSTRUCTIONS ===
-You are a memory summarization model for a computer use agent operating on Windows 11.
-Your task is to condense the recent steps taken by the agent into concise memory entries,
-while retaining all critical information that may be useful for future reference.
-- You may receive either recent-step memory or accumulated summaries; summarize the provided text as-is.
-- Always output a string of memory without useless words, and adhere strictly to JSON output format:
+You are a memory summarization model for a computer use agent on Windows 11.
+Condense the provided step history into a structured summary.
+
+Your summary MUST include these sections (omit empty ones):
+1. Completed Actions: What was done and the outcome (success/failed)
+2. Current App State: Which app is open, what screen/page is visible
+3. Information Gathered: Any data extracted (search results, file contents, form values)
+4. Errors and Recovery: What went wrong and how it was handled
+5. Pending Goals: What was attempted but not yet finished
+
+Rules:
+- Be concise but preserve all actionable details.
+- Include specific element names, coordinates, app names, and file names/paths when relevant.
+- Do not include step numbers.
+- Output must be valid JSON only:
 {{
     "summary": "Structured summary following the sections above",
     "file_name": "short_descriptive_name.txt"
