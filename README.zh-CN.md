@@ -145,7 +145,16 @@ git checkout mac_legacy
 ---
 ## <a id="model-performance"></a>📊 模型性能
 
-我们Agent在桌面自动化任务上达到了业界领先的表现：
+我们的 Agent 在桌面自动化任务上达到了业界领先的表现：
+
+### OSWorld 基准测试 — 排行榜第 3 名（50 步）
+
+TuriX 在完整 OSWorld 基准测试中取得 **59.7%（213.29 / 357）** 的成绩，在所有提交的 Agent 中**排名第 3**。值得注意的是，TuriX 专为 **macOS** 打造和优化，在我们自建的 OSWorld 风格 Mac 基准测试中达到了 **80% 以上的成功率**。我们**没有使用任何 Linux 训练数据**，却依然在 OSWorld 的 Linux 环境中取得了前三的成绩。
+
+<p align="center">
+   <img src="./doc/os-world.png" width="600" alt="TuriX OSWorld 基准测试成绩 — 59.7%">
+</p>
+
 <p align="center">
    <img src="./doc/performance_sum.jpg" width="1600" alt="TuriX 性能">
 </p>
