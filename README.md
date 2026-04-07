@@ -23,7 +23,7 @@ Join our Discord community for support, discussions, and updates:
 Or contact us with email: contact@turix.ai
 
 TuriX lets your powerful AI models take real, hands‑on actions directly on your desktop. 
-It ships with a **state‑of‑the‑art computer‑use agent** (passes > 68 % of our internal OSWorld‑style test set) yet stays 100 % open‑source and cost‑free for personal & research use.  
+It ships with a **state‑of‑the‑art computer‑use agent** (achieves 80% success rate on our OSWorld‑style Mac benchmark and 60% success rate on OSWorld) yet stays 100 % open‑source and cost‑free for personal & research use.  
 
 Prefer your own model? **Change in `config.json` and go.**
 
@@ -115,6 +115,15 @@ Ready to level up? Update your `config.json` and start automating—happy hackin
 ## 📊 Model Performance
 
 Our agent achieves state-of-the-art performance on desktop automation tasks:
+
+### OSWorld Benchmark — 3rd Place on the Leaderboard (50 Steps)
+
+TuriX scores **59.7% (213.29 / 357)** on the full OSWorld benchmark, ranking **3rd overall** among all submitted agents. Notably, TuriX is built and optimized for **macOS**, where we achieve an **80%+ success rate** on our self-hosted OSWorld-style Mac benchmark. We used **zero Linux training data**, yet still achieve a top-3 finish on OSWorld's Linux-based environment.
+
+<p align="center">
+   <img src="./doc/os-world.png" width="600" alt="TuriX OSWorld benchmark score — 59.7%">
+</p>
+
 <p align="center">
    <img src="./doc/performance_sum.jpg" width="1600" alt="TuriX performance">
 </p>
