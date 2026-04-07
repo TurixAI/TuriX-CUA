@@ -34,7 +34,7 @@ Prefer your own model? **Change in `config.json` and go.**
 - [🖼️ Demos](#️-demos)
 - [✨ Key Features](#-key-features)
 - [📊 Model Performance](#-model-performance)
-- [🚀 Quick‑Start (Windows)](#-quickstart-windows)
+- [🚀 Quick‑Start (Linux)](#-quickstart-linux)
    - [1. Download the App](#1-download-the-app)
    - [2. Create a Python 3.12 Environment](#2-create-a-python-312-environment)
    - [Linux System Prerequisites](#linux-system-prerequisites)
@@ -51,9 +51,11 @@ Use TuriX via OpenClaw with our published skill on ClawHub:
 https://clawhub.ai/Tongyu-Yan/turix-cua  
 This lets OpenClaw call TuriX so it can act as your desktop agent.
 
-Local OpenClaw skill (Windows): this branch includes a ready-to-use package in `OpenCLaw_TuriX_skill/` (`SKILL.md`, `scripts/run_turix.ps1`, and `agents/openai.yaml`).  
-Copy it into your OpenClaw local skills folder (for example: `clawd/skills/local/turix-windows/`) and follow `OpenCLaw_TuriX_skill/README.md` for setup and permissions.
-This update adds direct dispatch via `turix` (alias `turix-win`) in the current OpenClaw session, plus pre-flight checks in `run_turix.ps1` (branch validation, conda/config checks, and `--dry-run` support).
+Local OpenCLaw skill (macOS): this repo also includes a ready-to-use skill package in `OpenCLaw_TuriX_skill/` (`SKILL.md` + `scripts/run_turix.sh`).  
+Copy it into your OpenClaw local skills folder (for example: `clawd/skills/local/turix-mac/`) and follow `OpenCLaw_TuriX_skill/README.md` for setup and permissions.
+
+Local OpenClaw skill (Windows): on branch `multi-agent-windows`, `OpenCLaw_TuriX_skill/` is updated for Windows with `SKILL.md`, `scripts/run_turix.ps1`, and `agents/openai.yaml`.  
+This update adds direct dispatch via `turix` (alias `turix-win`) in the current OpenClaw session, plus pre-flight checks in `run_turix.ps1` (required branch `multi-agent-windows`, conda/config validation, and `--dry-run` support).
 You can also instruct OpenClaw directly: read `OpenCLaw_TuriX_skill/README.md` first, then install and configure TuriX.
 
 ---
@@ -65,6 +67,10 @@ You can also instruct OpenClaw directly: read `OpenCLaw_TuriX_skill/README.md` f
 git checkout multi-agent-linux
 ```
 
+**March 9, 2026** - Added a new **OpenClaw Flash/Fast Mode skill for macOS** on branch `mac_legacy`. If you want to use this faster, lighter setup, switch to that branch first:
+```bash
+git checkout mac_legacy
+```
 
 **March 5, 2026** - Updated the **Windows OpenClaw local skill** on branch `multi-agent-windows`. This update adds a user-invocable `turix` skill alias, direct dispatch without requiring a Turix sub-session, branch-safe pre-flight checks in `run_turix.ps1`, and the new agent interface file `OpenCLaw_TuriX_skill/agents/openai.yaml`.
 
@@ -89,6 +95,22 @@ Ready to level up? Update your `config.json` and start automating—happy hackin
 ---
 
 ## 🖼️ Demos
+<h3 align="center">MacOS Demo</h3>
+<p align="center"><strong>Book a flight, hotel and uber.</strong></p>
+<p align="center">
+   <img src="./doc/booking_demo.gif" width="1600" alt="TuriX macOS demo - booking">
+</p>
+
+<p align="center"><strong>Search iPhone price, create Pages document, and send to contact</strong></p>
+<p align="center">
+   <img src="./doc/demo1.gif" width="1600" alt="TuriX macOS demo - iPhone price search and document sharing">
+</p>
+
+<p align="center"><strong>Generate a bar-chart in the numbers file sent by boss in discord and insert it to the right place of my powerpoint, and reply my boss.</strong></p>
+<p align="center">
+   <img src="./doc/complex_demo_mac.gif" width="1600" alt="TuriX macOS demo - excel graph to powerpoint">
+</p>
+
 <h3 align="center">Windows Demo</h3>
 <p align="center"><strong>Search video content in youtube and like it</strong></p>
 <p align="center">
@@ -96,7 +118,7 @@ Ready to level up? Update your `config.json` and start automating—happy hackin
 </p>
 
 <h3 align="center">MCP with Claude Demo</h3>
-<p align="center"><strong>Claude search for AI news, and call TuriX with MCP, write down the research result to a Word document and send it to contact</strong></p>
+<p align="center"><strong>Claude search for AI news, and call TuriX with MCP, write down the research result to a pages document and send it to contact</strong></p>
 <p align="center">
    <img src="./doc/mcp_demo1.gif" width="1600" alt="TuriX MCP demo - news search and sharing">
 </p>
@@ -106,7 +128,7 @@ Ready to level up? Update your `config.json` and start automating—happy hackin
 ## ✨ Key Features
 | Capability | What it means |
 |------------|---------------|
-| **SOTA default model** | Outperforms previous open‑source agents (e.g. UI‑TARS) on success rate and speed on Windows |
+| **SOTA default model** | Outperforms previous open‑source agents (e.g. UI‑TARS) on success rate and speed on Mac |
 | **No app‑specific APIs** | If a human can click it, TuriX can too—WhatsApp, Excel, Outlook, in‑house tools… |
 | **Hot‑swappable "brains"** | Replace the VLM policy without touching code (`config.json`) |
 | **MCP‑ready** | Hook up *Claude for Desktop* or **any** agent via the Model Context Protocol (MCP) |
@@ -122,7 +144,7 @@ Our agent achieves state-of-the-art performance on desktop automation tasks:
 
 For more details, check our [report](https://turix.ai/technical-report/).
 
-## 🚀 Quick‑Start (Windows)
+## 🚀 Quick‑Start (Linux)
 
 > **We never collect data**—install, grant permissions, and hack away.
 >
@@ -176,22 +198,22 @@ Edit task in `examples/config.json`:
     }
 }
 ```
-There is no use_ui parameter in the windows version, the state is only a screenshot.
+This branch supports Linux desktop automation (X11). Configure your task directly in `examples/config.json` and run.
 
 #### 3.2 Edit API Configuration
 
 Get API now with $20 credit from our [official web page](https://turix.ai/api-platform/).
 Login to our website and the key is at the bottom.
 
-In this main (multi-agent) branch, you need to set the brain, actor, and memory models. It only supports mac for now. If you enable planning
+In this multi-agent branch, you need to set the brain, actor, and memory models. If you enable planning
 (`agent.use_plan: true`), you also need to set the planner model.
-We strongly recommand you to set the turix-actor model as the actor. The brain can be any VLMs you like, we provide qwen3vl in out platform. Gemini-3-pro is tested to be smartest, and Gemini-3-flash is fast and smart enough for most of the tasks. Since turix-brain model is updating now, we recommend you to use gemini in our API platform.
+We strongly recommend you set the turix-actor model as the actor. The brain can be any VLM you like.
 
 Edit API in `examples/config.json`:
 ```json
 "brain_llm": {
       "provider": "turix",
-      "model_name": "gemini-3-flash-preview",
+      "model_name": "turix-brain",
       "api_key": "YOUR_API_KEY",
       "base_url": "https://turixapi.io/v1"
    },
@@ -203,21 +225,17 @@ Edit API in `examples/config.json`:
    },
 "memory_llm": {
       "provider": "turix",
-      "model_name": "gemini-3-flash-preview",
+      "model_name": "turix-brain",
       "api_key": "YOUR_API_KEY",
       "base_url": "https://turixapi.io/v1"
    },
 "planner_llm": {
       "provider": "turix",
-      "model_name": "gemini-3-flash-preview",
+      "model_name": "turix-brain",
       "api_key": "YOUR_API_KEY",
       "base_url": "https://turixapi.io/v1"
    }
 ```
-
-In this multi-agent branch, you need to set the brain, actor, and memory models. If you enable planning
-(`agent.use_plan: true`), you also need to set the planner model.
-We strongly recommend you set the turix-actor model as the actor. The brain can be any VLM you like.
 
 For a local Ollama setup, point each role to your Ollama server:
 ```json

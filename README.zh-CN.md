@@ -20,11 +20,13 @@
    </a>
 </p>
 
+如果你在github中有网络或其他问题导致无法clone我们的项目，也可以在[AtomGit平台](https://atomgit.com/TuriXAI/TuriX-CUA)上找到我们
 
-如果不方便使用GitHub，也可以到[AtomGit平台](https://atomgit.com/TuriXAI/TuriX-CUA)上找到我们。
+如果对我们的项目感兴趣，也欢迎加入我们的微信群：<br>
+<img src="https://raw.githubusercontent.com/Dennisyk348/QRcode/main/QRcode_0329.jpg" alt="微信群二维码" width="180" />
 
-如果对我们的项目感兴趣，也欢迎加入我们的微信群：
-![QRcode](https://raw.githubusercontent.com/Dennisyk348/QRcode/main/QRcode_0309.jpg)
+如微信群无法加入，请直接添加官方小助理：<br>
+<img src="https://raw.githubusercontent.com/Dennisyk348/QRcode/main/QRcode_turix.jpg" alt="turix小助手" width="180" />
 
 或通过邮件联系我们：contact@turix.ai
 
@@ -40,7 +42,7 @@ TuriX 让你的强大 AI 模型能在桌面上真正动手操作。
 - [🖼️ 演示](#demos)
 - [✨ 关键特性](#key-features)
 - [📊 模型性能指标](#model-performance)
-- [🚀 快速开始（Windows 11）](#quickstart-windows)
+- [🚀 快速开始（Linux）](#quickstart-linux)
    - [1. 下载应用](#download-app)
    - [2. 创建 Python 3.12 环境](#create-python-env)
    - [Linux 系统依赖](#linux-prerequisites)
@@ -57,9 +59,11 @@ TuriX 让你的强大 AI 模型能在桌面上真正动手操作。
 https://clawhub.ai/Tongyu-Yan/turix-cua  
 这让 OpenClaw 可以调用 TuriX，作为你的桌面操作 Agent。
 
-本仓库还提供 OpenCLaw 的本地技能包（Windows），位于 `OpenCLaw_TuriX_skill/`（包含 `SKILL.md`、`scripts/run_turix.ps1` 与 `agents/openai.yaml`）。  
-将其复制到你的 OpenClaw 本地技能目录（例如：`clawd/skills/local/turix-windows/`），并参考 `OpenCLaw_TuriX_skill/README.md` 完成安装与权限设置。
-该更新支持在当前 OpenClaw 会话中通过 `turix`（别名 `turix-win`）直接分发任务，并在 `run_turix.ps1` 中增加了预检查（分支校验、conda/config 校验、`--dry-run` 支持）。
+本仓库还提供 OpenCLaw 的本地技能包（macOS），位于 `OpenCLaw_TuriX_skill/`（包含 `SKILL.md` 与 `scripts/run_turix.sh`）。  
+将其复制到你的 OpenClaw 本地技能目录（例如：`clawd/skills/local/turix-mac/`），并参考 `OpenCLaw_TuriX_skill/README.md` 完成安装与权限设置。
+
+OpenClaw 的 Windows 本地技能包位于 `multi-agent-windows` 分支的 `OpenCLaw_TuriX_skill/`，包含 `SKILL.md`、`scripts/run_turix.ps1` 与 `agents/openai.yaml`。  
+该更新支持在当前 OpenClaw 会话中通过 `turix`（别名 `turix-win`）直接分发任务，并在 `run_turix.ps1` 中增加了预检查（强制分支 `multi-agent-windows`、conda/config 校验、`--dry-run` 支持）。
 你也可以直接让 OpenClaw 先阅读 `OpenCLaw_TuriX_skill/README.md`，再按文档安装并配置 TuriX。
 
 ---
@@ -71,6 +75,10 @@ https://clawhub.ai/Tongyu-Yan/turix-cua
 git checkout multi-agent-linux
 ```
 
+**2026 年 3 月 9 日** - 我们在 `mac_legacy` 分支新增了 **OpenClaw 的 macOS Flash/Fast 模式技能包**。如果你要使用这个更快、更轻量的模式，请先切换分支：
+```bash
+git checkout mac_legacy
+```
 
 **2026 年 3 月 5 日** - 我们更新了 `multi-agent-windows` 分支上的 **OpenClaw Windows 本地技能包**。本次更新加入可直接调用的 `turix` 技能别名、无需 Turix 子会话的直接分发机制、`run_turix.ps1` 的分支安全预检查，以及新的代理接口文件 `OpenCLaw_TuriX_skill/agents/openai.yaml`。
 
@@ -95,6 +103,22 @@ git checkout multi-agent-linux
 ---
 
 ## <a id="demos"></a>🖼️ 演示
+<h3 align="center">MacOS 演示</h3>
+<p align="center"><strong>预订机票、酒店和 Uber。</strong></p>
+<p align="center">
+   <img src="./doc/booking_demo.gif" width="1600" alt="TuriX macOS 演示 - 预订">
+</p>
+
+<p align="center"><strong>查询 iPhone 价格，创建 Pages 文档，并发送给联系人</strong></p>
+<p align="center">
+   <img src="./doc/demo1.gif" width="1600" alt="TuriX macOS 演示 - 查询 iPhone 价格并共享文档">
+</p>
+
+<p align="center"><strong>在老板通过 Discord 发送的 Numbers 文件中生成柱状图，插入到 PowerPoint 的正确位置，并回复老板。</strong></p>
+<p align="center">
+   <img src="./doc/complex_demo_mac.gif" width="1600" alt="TuriX macOS 演示 - Excel 图表到 PowerPoint">
+</p>
+
 <h3 align="center">Windows 演示</h3>
 <p align="center"><strong>在 YouTube 搜索视频内容并点赞</strong></p>
 <p align="center">
@@ -102,7 +126,7 @@ git checkout multi-agent-linux
 </p>
 
 <h3 align="center">与 Claude 的 MCP 演示</h3>
-<p align="center"><strong>Claude 搜索 AI 新闻并通过 MCP 调用 TuriX，将研究结果写入 Word 文档并发送给联系人</strong></p>
+<p align="center"><strong>Claude 搜索 AI 新闻并通过 MCP 调用 TuriX，将研究结果写入 Pages 文档并发送给联系人</strong></p>
 <p align="center">
    <img src="./doc/mcp_demo1.gif" width="1600" alt="TuriX MCP 演示 - 新闻搜索与共享">
 </p>
@@ -112,7 +136,7 @@ git checkout multi-agent-linux
 ## <a id="key-features"></a>✨ 关键特性
 | 能力 | 含义 |
 |------------|---------------|
-| **SOTA 默认模型** | 在 Windows 上的成功率和速度上超越此前的开源Agent（如 UI‑TARS） |
+| **SOTA 默认模型** | 在 Mac 上的成功率和速度上超越此前的开源Agent（如 UI‑TARS） |
 | **无需应用专用 API** | 只要人能点，TuriX 就能点——WhatsApp、Excel、Outlook、内部工具… |
 | **可热插拔的「大脑」** | 无需改代码即可替换 VLM 策略（`config.json`） |
 | **MCP 就绪** | 可接入 *Claude for Desktop* 或 **任何** 支持 Model Context Protocol (MCP) 的Agent |
@@ -128,7 +152,7 @@ git checkout multi-agent-linux
 
 更多细节请查看我们的 [报告](https://turix.ai/technical-report/)。
 
-## <a id="quickstart-windows"></a>🚀 快速开始（Windows 11）
+## <a id="quickstart-linux"></a>🚀 快速开始（Linux）
 
 > **我们从不收集数据**——安装、授权，尽情折腾。
 >
@@ -182,20 +206,20 @@ sudo apt install -y \
     }
 }
 ```
-Windows 版本没有 use_ui 参数，状态只有截图。
+当前分支支持 Linux 桌面自动化（X11），请在 `examples/config.json` 中配置任务后直接运行。
 
 #### 3.2 编辑 API 配置
 
 从我们的[官网](https://turix.ai/api-platform/)获取 API，现在可获 $20 额度。
 登录网站，密钥在页面底部。
-在这个 main（multi-agent）分支，你需要同时配置 brain、actor 和 memory 模型；目前该特性仅支持苹果电脑。如果开启规划（`agent.use_plan: true`），还需要配置 planner 模型。
+在这个 multi-agent 分支，你需要同时配置 brain、actor 和 memory 模型。如果开启规划（`agent.use_plan: true`），还需要配置 planner 模型。
 我们强烈建议你将 turix-actor 模型作为 actor。brain 可以使用你喜欢的任意 VLM，我们的API平台提供 Gemini-3-flash作为brain，它足够快且智能，适合大多数任务。
 
 在 `examples/config.json` 中编辑 API：
 ```json
 "brain_llm": {
       "provider": "turix",
-      "model_name": "gemini-3-flash-preview",
+      "model_name": "turix-brain",
       "api_key": "YOUR_API_KEY",
       "base_url": "https://turixapi.io/v1"
    },
@@ -207,13 +231,13 @@ Windows 版本没有 use_ui 参数，状态只有截图。
    },
 "memory_llm": {
       "provider": "turix",
-      "model_name": "gemini-3-flash-preview",
+      "model_name": "turix-brain",
       "api_key": "YOUR_API_KEY",
       "base_url": "https://turixapi.io/v1"
    },
 "planner_llm": {
       "provider": "turix",
-      "model_name": "gemini-3-flash-preview",
+      "model_name": "turix-brain",
       "api_key": "YOUR_API_KEY",
       "base_url": "https://turixapi.io/v1"
    }
