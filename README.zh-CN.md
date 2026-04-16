@@ -31,7 +31,7 @@
 或通过邮件联系我们：contact@turix.ai
 
 TuriX 让你的强大 AI 模型能在桌面上真正动手操作。
-它内置 **最先进的计算机使用Agent**（在我们的 OSWorld 风格 Mac 基准上成功率达到 80%，在 OSWorld 上成功率达到 60%），同时保持 100% 开源，并对个人与科研用途免费。
+它内置 **最先进的计算机使用Agent**（在我们的 OSWorld 风格 Mac 基准上成功率达到 80%，在 OSWorld 上成功率达到 64.2%），同时保持 100% 开源，并对个人与科研用途免费。
 
 想用你自己的模型？**在 `config.json` 中切换即可。**
 
@@ -149,10 +149,10 @@ git checkout mac_legacy
 
 ### OSWorld 基准测试 — 排行榜第 3 名（50 步）
 
-TuriX 在完整 OSWorld 基准测试中取得 **59.7%（213.29 / 357）** 的成绩，在所有提交的 Agent 中**排名第 3**。值得注意的是，TuriX 专为 **macOS** 打造和优化，在我们自建的 OSWorld 风格 Mac 基准测试中达到了 **80% 以上的成功率**。我们**没有使用任何 Linux 训练数据**，却依然在 OSWorld 的 Linux 环境中取得了前三的成绩。
+TuriX 在完整 OSWorld 基准测试中取得 **64.2%（229.88 / 357）** 的成绩，在所有提交的 Agent 中**排名第 3**。值得注意的是，TuriX 专为 **macOS** 打造和优化，在我们自建的 OSWorld 风格 Mac 基准测试中达到了 **80% 以上的成功率**。我们**没有使用任何 Linux 训练数据**，却依然在 OSWorld 的 Linux 环境中取得了前三的成绩。
 
 <p align="center">
-   <img src="./doc/os-world.png" width="600" alt="TuriX OSWorld 基准测试成绩 — 59.7%">
+   <img src="./doc/os-world.png" width="600" alt="TuriX OSWorld 基准测试成绩 — 64.2%">
 </p>
 
 <p align="center">
