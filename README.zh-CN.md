@@ -23,7 +23,7 @@
 如果你在github中有网络或其他问题导致无法clone我们的项目，也可以在[AtomGit平台](https://atomgit.com/TuriXAI/TuriX-CUA)上找到我们
 
 如果对我们的项目感兴趣，也欢迎加入我们的微信群：<br>
-<img src="https://raw.githubusercontent.com/Dennisyk348/QRcode/main/QRcode_0409.jpg" alt="微信群二维码" width="180" />
+<img src="https://raw.githubusercontent.com/Dennisyk348/QRcode/main/QRcode_0415.jpg" alt="微信群二维码" width="180" />
 
 如微信群无法加入，请直接添加官方小助理：<br>
 <img src="https://raw.githubusercontent.com/Dennisyk348/QRcode/main/QRcode_turix.jpg" alt="turix小助手" width="180" />
