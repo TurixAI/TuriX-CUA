@@ -169,7 +169,7 @@ There is no use_ui parameter in the windows version, the state is only a screens
 
 #### 3.2 Edit API Configuration
 
-Get API now with $20 credit from our [official web page](https://turix.ai/api-platform/).
+Get API now with credit from our [official web page](https://turix.ai/api-platform/).
 Login to our website and the key is at the bottom.
 
 In this main (multi-agent) branch, you need to set the brain, actor, and memory models. It only supports mac for now. If you enable planning
