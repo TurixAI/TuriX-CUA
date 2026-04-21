@@ -211,7 +211,7 @@ This branch supports Linux desktop automation (X11). Configure your task directl
 
 #### 3.2 Edit API Configuration
 
-Get API now with $20 credit from our [official web page](https://turix.ai/api-platform/).
+Get API now credit from our [official web page](https://turix.ai/api-platform/).
 Login to our website and the key is at the bottom.
 
 In this multi-agent branch, you need to set the brain, actor, and memory models. If you enable planning
