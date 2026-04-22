@@ -10,7 +10,7 @@
   <a href="README.md">English</a> | <a href="README.zh-CN.md">中文</a>
 </p>
 
-## <a id="contact-community"></a>📞 联系方式与社区
+## <a id="contact-community">📞 联系方式与社区</a>
 
 加入我们的 Discord 社区获取支持、讨论与更新：
 
@@ -55,7 +55,7 @@ TuriX 让你的强大 AI 模型能在桌面上真正动手操作。
 
 ---
 
-## <a id="openclaw-skill"></a>🤖 OpenClaw 技能
+## <a id="openclaw-skill">🤖 OpenClaw 技能</a>
 
 通过 OpenClaw 使用 TuriX 的 ClawHub 技能：  
 https://clawhub.ai/Tongyu-Yan/turix-cua
@@ -68,7 +68,7 @@ https://clawhub.ai/Tongyu-Yan/turix-cua
 
 ---
 
-## <a id="latest-news"></a>📰 最新动态
+## <a id="latest-news">📰 最新动态</a>
 
 **2026 年 4 月 8 日** - 🚀 重磅发布 **TuriX SuperPower 3.0.0-alpha**（macOS Apple Silicon）：  
 [dmg安装包（仅支持Mac）](https://turix-staging-apollo.sfo3.cdn.digitaloceanspaces.com/turix-app/desktop/releases/Turix-SuperPower_3.0.0-alpha_aarch64.dmg)
@@ -99,7 +99,7 @@ git checkout mac_legacy
 
 ---
 
-## <a id="demos"></a>🖼️ 演示
+## <a id="demos">🖼️ 演示</a>
 <p align="center"><strong>TuriX SuperPower App 演示</strong></p>
 <p align="center">
    <img src="./doc/app_demo.jpg" width="1600" alt="TuriX SuperPower 应用演示">
@@ -135,7 +135,7 @@ git checkout mac_legacy
 
 ---
 
-## <a id="key-features"></a>✨ 关键特性
+## <a id="key-features">✨ 关键特性</a>
 | 能力 | 含义 |
 |------------|---------------|
 | **SOTA 默认模型** | 在 Mac 上的成功率和速度上超越此前的开源Agent（如 UI‑TARS） |
@@ -145,7 +145,7 @@ git checkout mac_legacy
 | **Skills（Markdown 手册）** | Planner 仅根据名称/描述选择技能，Brain 使用完整技能内容来指导每一步 |
 
 ---
-## <a id="model-performance"></a>📊 模型性能
+## <a id="model-performance">📊 模型性能指标</a>
 
 我们的 Agent 在桌面自动化任务上达到了业界领先的表现：
 
@@ -163,7 +163,78 @@ TuriX 在完整 OSWorld 基准测试中取得 **64.2%（229.88 / 358）** 的成
 
 更多细节请查看我们的 [报告](https://turix.ai/technical-report/)。
 
-## <a id="quickstart-macos-15"></a>🚀 快速开始（macOS 15+）
+## <a id="architecture">📁 项目架构</a>
+
+TuriX采用模块化的多智能体架构，由以下核心组件组成：
+
+### 核心组件
+
+| 组件 | 描述 | 位置 | 具体职责 |
+|-----------|-------------|----------|----------|
+| **Agent** | 主要协调器，负责协调所有其他组件 | `src/agent/service.py` | 管理任务执行流程，协调Brain、Actor、Planner等组件的工作 |
+| **Controller** | 在桌面上执行操作并管理操作注册表 | `src/controller/service.py` | 执行具体的桌面操作，如点击、输入、滚动等 |
+| **MacUITreeBuilder** | 为 macOS 构建 UI 树并捕获屏幕截图 | `src/mac/tree.py` | 构建UI元素树结构，捕获屏幕截图用于分析 |
+| **MessageManager** | 管理不同组件之间的消息 | `src/agent/message_manager/service.py` | 处理组件间的消息传递，确保信息流畅通 |
+| **Planner** | 根据用户任务创建分步计划 | `src/agent/planner_service.py` | 分析任务目标，创建详细的执行计划 |
+| **BrainSearchFlow** | 集成搜索引擎进行信息收集 | `src/utils/brain_search.py` | 使用搜索引擎获取完成任务所需的信息 |
+| **Skills System** | 加载并使用技能手册执行任务 | `src/utils/skills.py` | 加载和管理技能手册，为任务执行提供指导 |
+| **RecordStore** | 存储和管理记录的信息 | `src/utils/record_store.py` | 存储任务执行过程中的记录和记忆 |
+
+### 多模型架构
+
+TuriX 使用多模型方法，具有专门的角色：
+
+- **Brain LLM**：分析屏幕截图并确定下一个目标
+- **Actor LLM**：生成特定操作以实现目标
+- **Planner LLM**：为复杂任务创建高级计划
+- **Memory LLM**：管理和压缩代理内存
+
+### 关键技术特性
+
+1. **内存压缩**：自动总结和压缩内存以保持在令牌限制内
+2. **技能系统**：使用 Markdown 手册指导任务执行
+3. **搜索集成**：利用搜索引擎进行信息收集
+4. **任务恢复**：支持恢复中断的任务
+5. **MCP 集成**：与 Model Context Protocol 兼容，用于第三方代理连接
+
+## <a id="implementation">🔍 实现原理</a>
+
+TuriX 遵循结构化的工作流程来执行桌面自动化任务。以下是其工作原理的分步说明：
+
+### 1. 任务初始化
+- 用户在 `config.json` 中定义任务
+- 系统加载配置并初始化 Agent
+- Agent 设置必要的组件（Brain、Actor、Planner、Memory）
+
+### 2. 规划（可选）
+- 如果启用了 `use_plan`，Planner LLM 会创建分步计划
+- Planner 可能会从技能目录中选择相关技能
+- 计划会传递给 Brain 作为执行指导
+
+### 3. Brain 分析
+- Brain LLM 通过屏幕截图分析当前屏幕
+- 评估当前状态并确定下一个目标
+- Brain 考虑之前的步骤和记忆来做出明智的决策
+
+### 4. 动作执行
+- Actor LLM 生成特定的动作来实现当前目标
+- Controller 在桌面上执行这些动作
+- 系统捕获每个动作的结果
+
+### 5. 记忆管理
+- Memory LLM 总结和压缩任务历史
+- 系统同时维护近期记忆和总结记忆
+- 记忆会自动裁剪以保持在令牌限制内
+
+### 6. 迭代
+- 流程重复直到任务完成或达到最大步骤数
+- 每次迭代都建立在之前的知识和经验基础上
+
+### 7. 任务完成
+- Agent 提供已完成动作的摘要
+- 系统保存任务历史和记忆，以便可能的恢复
+
+## <a id="quickstart-macos-15">🚀 快速开始（macOS 15+）</a>
 
 > **我们从不收集数据**——安装、授权，尽情折腾。
 
@@ -186,12 +257,12 @@ TuriX 在完整 OSWorld 基准测试中取得 **64.2%（229.88 / 358）** 的成
 > **0. macOS 旧版用户**：如需此前的单模型 macOS 版本，请切换到 `mac_legacy` 分支。
 
 
-### <a id="download-app"></a>1. 下载应用
+### <a id="download-app">1. 下载应用</a>
 为了更方便使用，[下载应用](https://turix.ai/)
 
 或按下面的手动步骤安装：
 
-### <a id="create-python-env"></a>2. 创建 Python 3.12 环境
+### <a id="create-python-env">2. 创建 Python 3.12 环境</a>
 首先克隆仓库并运行：
 ```bash
 conda create -n turix_env python=3.12
@@ -199,14 +270,14 @@ conda activate turix_env        # requires conda ≥ 22.9
 pip install -r requirements.txt
 ```
 
-### <a id="grant-macos-permissions"></a>3. 授予 macOS 权限
+### <a id="grant-macos-permissions">3. 授予 macOS 权限</a>
 
-#### <a id="accessibility"></a>3.1 辅助功能
+#### <a id="accessibility">3.1 辅助功能</a>
 1. 打开 **系统设置 ▸ 隐私与安全性 ▸ 辅助功能**  
 2. 点击 **＋**，然后添加 **Terminal** 和 **Visual Studio Code**（或你使用的任何 IDE）
 3. 如果运行仍然失败，也请添加 **/usr/bin/python3**
 
-#### <a id="safari-automation"></a>3.2 Safari 自动化
+#### <a id="safari-automation">3.2 Safari 自动化</a>
 1. **Safari ▸ 设置 ▸ 高级** → 启用 **显示针对 Web 开发者的功能**  
 2. 在新出现的 **开发** 菜单中启用  
     * **允许远程自动化**  
@@ -223,7 +294,7 @@ osascript -e 'tell application "Safari" to do JavaScript "alert("Triggering acce
 
 > **在每个弹窗中点击“允许”**，这样Agent才能驱动 Safari。
 
-### <a id="configure-run"></a>4. 配置并运行
+### <a id="configure-run">4. 配置并运行</a>
 
 #### 4.1 编辑任务配置
 
@@ -313,7 +384,7 @@ if provider == "name_you_want":
 ```
 请根据你的 LLM 在 ChatOpenAI、ChatGoogleGenerativeAI、ChatAnthropic 或 ChatOllama 之间切换，并修改对应的模型名称。
 
-#### <a id="skills-optional"></a>4.4 Skills（可选）
+#### 4.4 <a id="skills-optional">Skills（可选）</a>
 
 Skills 是放在单一文件夹中的 Markdown 手册（默认 `skills/`）。每个技能文件以 YAML frontmatter 开头，包含 `name` 和 `description`，后面是操作说明。Planner 只读取名称与描述来选择技能；Brain 会读取完整内容来指导每一步的目标生成。
 Skills 选择需要开启规划功能（`agent.use_plan: true`）。
@@ -367,7 +438,7 @@ python examples/main.py
 - 只有在 `src/agent/temp_files/<agent_id>/memory.jsonl` 已存在时才会生效。
 - 想重新开始：将 `resume` 设为 `false`、更换 `agent_id`，或删除 `src/agent/temp_files/<agent_id>`。
 
-## <a id="contributing"></a>🤝 贡献指南
+## <a id="contributing">🤝 贡献指南</a>
 
 我们欢迎贡献！请阅读我们的 [Contributing Guide](CONTRIBUTING.MD) 了解如何开始。
 
@@ -379,7 +450,7 @@ python examples/main.py
 
 如果你发现 bug 或有功能需求，请 [提交 issue](https://github.com/TurixAI/TuriX-CUA/issues)。
 
-## <a id="roadmap"></a>🗺️ 路线图
+## <a id="roadmap">🗺️ 路线图</a>
 
 | 季度 | 功能 | 描述 |
 |---------|---------|-------------|

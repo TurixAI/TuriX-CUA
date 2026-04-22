@@ -374,6 +374,43 @@ Quick links:
 
 For bug reports and feature requests, please [open an issue](https://github.com/TurixAI/TuriX-CUA/issues).
 
+<<<<<<< Updated upstream
+=======
+## 📁 Project Architecture
+
+TuriX employs a modular multi-agent architecture with the following core components:
+
+### Core Components
+
+| Component | Description | Location | Responsibilities |
+|-----------|-------------|----------|------------------|
+| **Agent** | The main orchestrator that coordinates all other components | `src/agent/service.py` | Manages task execution flow, coordinates Brain, Actor, Planner, and other components |
+| **Controller** | Executes actions on the desktop and manages the action registry | `src/controller/service.py` | Executes specific desktop operations like clicks, inputs, and scrolls |
+| **MacUITreeBuilder** | Builds UI tree and captures screenshots for macOS | `src/mac/tree.py` | Builds UI element tree structure and captures screenshots for analysis |
+| **MessageManager** | Manages messages between different components | `src/agent/message_manager/service.py` | Handles message passing between components, ensuring smooth information flow |
+| **Planner** | Creates step-by-step plans based on user tasks | `src/agent/planner_service.py` | Analyzes task goals and creates detailed execution plans |
+| **BrainSearchFlow** | Integrates with search engines for information gathering | `src/utils/brain_search.py` | Uses search engines to obtain information needed to complete tasks |
+| **Skills System** | Loads and uses skill playbooks for task execution | `src/utils/skills.py` | Loads and manages skill playbooks, providing guidance for task execution |
+| **RecordStore** | Stores and manages recorded information | `src/utils/record_store.py` | Stores task execution records and memory |
+
+### Multi-Model Architecture
+
+TuriX uses a multi-model approach with specialized roles:
+
+- **Brain LLM**: Analyzes screenshots and determines the next goal
+- **Actor LLM**: Generates specific actions to achieve the goal
+- **Planner LLM**: Creates high-level plans for complex tasks
+- **Memory LLM**: Manages and compresses agent memory
+
+### Key Technical Features
+
+1. **Memory Compression**: Automatically summarizes and compresses memory to stay within token limits
+2. **Skills System**: Uses markdown playbooks to guide task execution
+3. **Search Integration**: Leverages search engines for information gathering
+4. **Task Resume**: Supports resuming interrupted tasks
+5. **MCP Integration**: Compatible with Model Context Protocol for third-party agent connectivity
+
+>>>>>>> Stashed changes
 ## 🗺️ Roadmap
 
 | Quarter | Feature | Description |
