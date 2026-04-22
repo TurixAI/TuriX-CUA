@@ -34,6 +34,8 @@ Prefer your own model? **Change in `config.json` and go.**
 - [🖼️ Demos](#️-demos)
 - [✨ Key Features](#-key-features)
 - [📊 Model Performance](#-model-performance)
+- [📁 Project Architecture](#-project-architecture)
+- [🔍 Implementation Principles](#-implementation-principles)
 - [🚀 Quick‑Start (macOS 15+)](#-quickstart-macos-15)
    - [1. Download the App](#1-download-the-app)
    - [2. Create a Python 3.12 Environment](#2-create-a-python-312-environment)
@@ -373,6 +375,40 @@ Quick links:
 - [Pull Request Process](CONTRIBUTING.MD#pull-request-process)
 
 For bug reports and feature requests, please [open an issue](https://github.com/TurixAI/TuriX-CUA/issues).
+
+## 📁 Project Architecture
+
+TuriX采用模块化的多智能体架构，由以下核心组件组成：
+
+### Core Components
+
+| Component | Description | Location |
+|-----------|-------------|----------|
+| **Agent** | The main orchestrator that coordinates all other components | `src/agent/service.py` |
+| **Controller** | Executes actions on the desktop and manages the action registry | `src/controller/service.py` |
+| **MacUITreeBuilder** | Builds UI tree and captures screenshots for macOS | `src/mac/tree.py` |
+| **MessageManager** | Manages messages between different components | `src/agent/message_manager/service.py` |
+| **Planner** | Creates step-by-step plans based on user tasks | `src/agent/planner_service.py` |
+| **BrainSearchFlow** | Integrates with search engines for information gathering | `src/utils/brain_search.py` |
+| **Skills System** | Loads and uses skill playbooks for task execution | `src/utils/skills.py` |
+| **RecordStore** | Stores and manages recorded information | `src/utils/record_store.py` |
+
+### Multi-Model Architecture
+
+TuriX uses a multi-model approach with specialized roles:
+
+- **Brain LLM**: Analyzes screenshots and determines the next goal
+- **Actor LLM**: Generates specific actions to achieve the goal
+- **Planner LLM**: Creates high-level plans for complex tasks
+- **Memory LLM**: Manages and compresses agent memory
+
+### Key Technical Features
+
+1. **Memory Compression**: Automatically summarizes and compresses memory to stay within token limits
+2. **Skills System**: Uses markdown playbooks to guide task execution
+3. **Search Integration**: Leverages search engines for information gathering
+4. **Task Resume**: Supports resuming interrupted tasks
+5. **MCP Integration**: Compatible with Model Context Protocol for third-party agent connectivity
 
 ## 🗺️ Roadmap
 

@@ -2,9 +2,9 @@
    <img src="./doc/LogoHFitted.svg" width="1600" alt="TuriX 标志">
 </p>
 
-<h1 align="center">TuriX · AI 驱动的数字牛马</h1>
+<h1 align="center">TuriX · AI 驱动的桌面自动化</h1>
 
-<p align="center"><strong>描述你的任务给你的电脑，以启动你的数字牛马。</strong></p>
+<p align="center"><strong>描述你的任务给你的电脑，让AI为你执行操作。</strong></p>
 
 <p align="center">
   <a href="README.md">English</a> | <a href="README.zh-CN.md">中文</a>
@@ -42,11 +42,13 @@ TuriX 让你的强大 AI 模型能在桌面上真正动手操作。
 - [🖼️ 演示](#demos)
 - [✨ 关键特性](#key-features)
 - [📊 模型性能指标](#model-performance)
+- [📁 项目架构](#architecture)
+- [🔍 实现原理](#implementation)
 - [🚀 快速开始（macOS 15+）](#quickstart-macos-15)
    - [1. 下载应用](#download-app)
    - [2. 创建 Python 3.12 环境](#create-python-env)
    - [3. 授予 macOS 权限](#grant-macos-permissions)
-      - [3.1 mac辅助功能](#accessibility)
+      - [3.1 辅助功能](#accessibility)
       - [3.2 Safari 自动化](#safari-automation)
    - [4. 配置并运行](#configure-run)
    - [4.4 Skills（可选）](#skills-optional)
