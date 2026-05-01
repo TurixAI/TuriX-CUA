@@ -98,11 +98,41 @@ def register_force_stop_hotkey(
     listener.start()
     return listener
 
+def build_openai_compatible_llm(
+    *,
+    model_name: str,
+    api_key: str | None,
+    base_url: str | None,
+    temperature: float = 0.3,
+    model_kwargs: dict | None = None,
+    max_tokens: int | None = None,
+    timeout: float | int | None = None,
+):
+    if not model_name:
+        raise ValueError("OpenAI-compatible provider requires 'model_name'.")
+    kwargs = {
+        "model": model_name,
+        "openai_api_key": api_key,
+        "temperature": temperature,
+    }
+    if base_url:
+        kwargs["openai_api_base"] = base_url
+    if model_kwargs:
+        kwargs["model_kwargs"] = model_kwargs
+    if max_tokens is not None:
+        kwargs["max_tokens"] = max_tokens
+    if timeout is not None:
+        kwargs["timeout"] = timeout
+    return ChatOpenAI(**kwargs)
+
 def build_llm(cfg: dict, enable_thinking: bool | None = None):
     provider = cfg["provider"].lower()
     api_key  = cfg.get("api_key") or os.getenv("API_KEY") or os.getenv("OPENAI_API_KEY")
     model_name = cfg.get("model_name")
     base_url = cfg.get("base_url")
+    temperature = cfg.get("temperature", 0.3)
+    max_tokens = cfg.get("max_tokens")
+    timeout = cfg.get("timeout")
     # Optional passthrough for OpenAI-compatible backends.
     # Useful for disabling provider-specific "thinking/reasoning" modes.
     model_kwargs = cfg.get("model_kwargs")
@@ -134,52 +164,84 @@ def build_llm(cfg: dict, enable_thinking: bool | None = None):
     if provider == "turix":
         if not base_url:
             raise ValueError("OpenAI‑compatible provider requires 'base_url'.")
-        kwargs = dict(
-            model=model_name,
-            openai_api_base=base_url,
-            openai_api_key=api_key,
-            temperature=cfg.get("temperature", 0.3),
+        return build_openai_compatible_llm(
+            model_name=model_name,
+            api_key=api_key,
+            base_url=base_url,
+            temperature=temperature,
+            model_kwargs=model_kwargs,
+            max_tokens=max_tokens,
+            timeout=timeout,
         )
-        if model_kwargs:
-            kwargs["model_kwargs"] = model_kwargs
-        if cfg.get("max_tokens") is not None:
-            kwargs["max_tokens"] = cfg.get("max_tokens")
-        if cfg.get("timeout") is not None:
-            kwargs["timeout"] = cfg.get("timeout")
-        return ChatOpenAI(**kwargs)
+
+    if provider == "deepseek":
+        return build_openai_compatible_llm(
+            model_name=model_name,
+            api_key=api_key,
+            base_url=base_url or "https://api.deepseek.com/v1",
+            temperature=temperature,
+            model_kwargs=model_kwargs,
+            max_tokens=max_tokens,
+            timeout=timeout,
+        )
+
+    if provider == "minimax":
+        return build_openai_compatible_llm(
+            model_name=model_name,
+            api_key=api_key,
+            base_url=base_url or "https://api.minimax.chat/v1",
+            temperature=temperature,
+            model_kwargs=model_kwargs,
+            max_tokens=max_tokens,
+            timeout=timeout,
+        )
+
+    if provider == "kimi":
+        return build_openai_compatible_llm(
+            model_name=model_name,
+            api_key=api_key,
+            base_url=base_url or "https://api.moonshot.cn/v1",
+            temperature=temperature,
+            model_kwargs=model_kwargs,
+            max_tokens=max_tokens,
+            timeout=timeout,
+        )
 
     if provider == "ollama":
         if not model_name:
             raise ValueError("Ollama provider requires 'model_name'.")
-        ollama_kwargs = {"model": model_name, "temperature": 0.3}
+        ollama_kwargs = {"model": model_name, "temperature": temperature}
         if base_url:
             ollama_kwargs["base_url"] = base_url
         return ChatOllama(**ollama_kwargs)
 
     if provider == "google_flash":
         return ChatGoogleGenerativeAI(
-            model="gemini-2.5-flash", api_key=api_key, temperature=0.3
+            model="gemini-2.5-flash", api_key=api_key, temperature=temperature
         )
     
-    if provider == "gpt":
-        kwargs = dict(
-            model="gpt-4.1-mini", api_key=api_key, temperature=0.3
+    if provider in {"gpt", "openai"}:
+        return build_openai_compatible_llm(
+            model_name=(model_name or "gpt-4.1-mini"),
+            api_key=api_key,
+            base_url=base_url,
+            temperature=temperature,
+            model_kwargs=model_kwargs,
+            max_tokens=max_tokens,
+            timeout=timeout,
         )
-        if model_kwargs:
-            kwargs["model_kwargs"] = model_kwargs
-        if cfg.get("max_tokens") is not None:
-            kwargs["max_tokens"] = cfg.get("max_tokens")
-        if cfg.get("timeout") is not None:
-            kwargs["timeout"] = cfg.get("timeout")
-        return ChatOpenAI(**kwargs)
 
     if provider == "google_pro":
         return ChatGoogleGenerativeAI(
-            model="gemini-2.5-pro", api_key=api_key, temperature=0.3
+            model="gemini-2.5-pro", api_key=api_key, temperature=temperature
         )
 
     if provider == "anthropic":
-        return ChatAnthropic(model="claude-4-opus", api_key=api_key, temperature=0.3)
+        return ChatAnthropic(
+            model=model_name or "claude-4-opus",
+            api_key=api_key,
+            temperature=temperature
+        )
 
     raise ValueError(f"Unknown llm provider '{provider}'")
 
