@@ -21,7 +21,7 @@
 </p>
 
 如果对我们的项目感兴趣，也欢迎加入我们的微信群：
-![QRcode](https://raw.githubusercontent.com/Dennisyk348/QRcode/main/QRcode_0422.jpg)
+![QRcode](https://raw.githubusercontent.com/Dennisyk348/QRcode/main/QRcode_0501.jpg)
 
 或通过邮件联系我们：contact@turix.ai
 
