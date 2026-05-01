@@ -96,6 +96,33 @@ def cleanup_previous_runs(working_dir_base: str):
             except Exception as e:
                 print(f"Error deleting {file}: {e}")
 
+def build_openai_compatible_llm(
+    *,
+    model_name: str,
+    api_key: str | None,
+    base_url: str | None,
+    temperature: float = 0.3,
+    model_kwargs: dict | None = None,
+    max_tokens: int | None = None,
+    timeout: float | int | None = None,
+):
+    if not model_name:
+        raise ValueError("OpenAI-compatible provider requires 'model_name'.")
+    kwargs = {
+        "model": model_name,
+        "openai_api_key": api_key,
+        "temperature": temperature,
+    }
+    if base_url:
+        kwargs["openai_api_base"] = base_url
+    if model_kwargs:
+        kwargs["model_kwargs"] = model_kwargs
+    if max_tokens is not None:
+        kwargs["max_tokens"] = max_tokens
+    if timeout is not None:
+        kwargs["timeout"] = timeout
+    return ChatOpenAI(**kwargs)
+
 def build_llm(cfg: dict):
     """Build LLM based on configuration."""
     provider = cfg["provider"].lower()
@@ -103,6 +130,8 @@ def build_llm(cfg: dict):
     base_url = cfg.get("base_url")
     model = cfg.get("model_name", "turix-model")
     temperature = cfg.get("temperature", 0.3)
+    max_tokens = cfg.get("max_tokens")
+    timeout = cfg.get("timeout")
     model_kwargs = cfg.get("model_kwargs")
     if not isinstance(model_kwargs, dict):
         model_kwargs = {}
@@ -125,19 +154,48 @@ def build_llm(cfg: dict):
     if provider == "turix":
         if not base_url:
             raise ValueError("Turix provider requires 'base_url'.")
-        kwargs = dict(
-            model=model,
-            openai_api_base=base_url,
-            openai_api_key=api_key,
+        return build_openai_compatible_llm(
+            model_name=model,
+            api_key=api_key,
+            base_url=base_url,
             temperature=temperature,
+            model_kwargs=model_kwargs,
+            max_tokens=max_tokens,
+            timeout=timeout,
         )
-        if model_kwargs:
-            kwargs["model_kwargs"] = model_kwargs
-        if cfg.get("max_tokens") is not None:
-            kwargs["max_tokens"] = cfg.get("max_tokens")
-        if cfg.get("timeout") is not None:
-            kwargs["timeout"] = cfg.get("timeout")
-        return ChatOpenAI(**kwargs)
+
+    elif provider == "deepseek":
+        return build_openai_compatible_llm(
+            model_name=model,
+            api_key=api_key,
+            base_url=base_url or "https://api.deepseek.com/v1",
+            temperature=temperature,
+            model_kwargs=model_kwargs,
+            max_tokens=max_tokens,
+            timeout=timeout,
+        )
+
+    elif provider == "minimax":
+        return build_openai_compatible_llm(
+            model_name=model,
+            api_key=api_key,
+            base_url=base_url or "https://api.minimax.chat/v1",
+            temperature=temperature,
+            model_kwargs=model_kwargs,
+            max_tokens=max_tokens,
+            timeout=timeout,
+        )
+
+    elif provider == "kimi":
+        return build_openai_compatible_llm(
+            model_name=model,
+            api_key=api_key,
+            base_url=base_url or "https://api.moonshot.cn/v1",
+            temperature=temperature,
+            model_kwargs=model_kwargs,
+            max_tokens=max_tokens,
+            timeout=timeout,
+        )
 
     elif provider == "google_pro_stable":
         return ChatGoogleGenerativeAI(
@@ -153,19 +211,16 @@ def build_llm(cfg: dict):
             temperature=temperature
         )
     
-    elif provider == "openai":
-        kwargs = dict(
-            model=model,
+    elif provider in {"openai", "gpt"}:
+        return build_openai_compatible_llm(
+            model_name=model if provider == "openai" else (model or "gpt-4.1-mini"),
             api_key=api_key,
-            temperature=temperature
+            base_url=base_url,
+            temperature=temperature,
+            model_kwargs=model_kwargs,
+            max_tokens=max_tokens,
+            timeout=timeout,
         )
-        if model_kwargs:
-            kwargs["model_kwargs"] = model_kwargs
-        if cfg.get("max_tokens") is not None:
-            kwargs["max_tokens"] = cfg.get("max_tokens")
-        if cfg.get("timeout") is not None:
-            kwargs["timeout"] = cfg.get("timeout")
-        return ChatOpenAI(**kwargs)
 
     elif provider == "anthropic":
         return ChatAnthropic(
