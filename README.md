@@ -261,22 +261,3 @@ Quick links:
 
 For bug reports and feature requests, please [open an issue](https://github.com/TurixAI/TuriX-CUA/issues).
 
-## 🗺️ Roadmap
-
-| Quarter | Feature | Description |
-|---------|---------|-------------|
-| **2025 Q3** | **✅ Terminate and Resume** | Support resuming from terminated task. |
-| **2025 Q3** | **✅ Windows Support** | Cross-platform compatibility bringing TuriX automation to Windows environments *(Now Available)* |
-| **2025 Q3** | **✅ Enhanced MCP Integration** | Deeper Model Context Protocol support for seamless third-party agent connectivity *(Now Available)*|
-| **2025 Q4** | **✅ Next-Gen AI Model** | Significantly improved clicking accuracy and task execution capabilities |
-| **2025 Q4** | **✅ Windows-Optimized Model** | Native Windows model architecture for superior performance on Microsoft platforms
-| **2025 Q4** | **✅ Support Gemini-3-pro model** | Run with any compatible vision language models |
-| **2025 Q4** | **✅ Planner** | Understands user intent and makes step-by-step plans to complete tasks |
-| **2025 Q4** | **✅ Multi-Agent Architecture** | Evaluate and guide each step in working |
-| **2025 Q4** | **✅ Duckduckgo Integration** | Speed up the information gathering process, for smarter planning (multi-agent branch) |
-| **2026 Q1** | **✅ Ollama Support** | Support the Ollama Qwen3.5vl models |
-| **2026 Q1** | **Recoverable Memory Compression** | Advance memory management mechanism to stabilize performance (beta in `multi-agent` & `multi-agent-windows` branches) |
-| **2026 Q1** | **Skills** | Stabilize the agent workflow (available in `multi-agent` & `multi-agent-windows` branches). |
-| **2026 Q1** | **Browser Automation** | Support a Chrome-like browser for scalability |
-| **2026 Q1** | **Persistent Memory** | Learn user preferences and maintain task history across sessions |
-| **2026 Q2** | **Learning by Demonstration** | Train the agent by showing it your preferred methods and workflows |
