@@ -311,4 +311,3 @@ Quick links:
 - [Pull Request Process](CONTRIBUTING.MD#pull-request-process)
 
 For bug reports and feature requests, please [open an issue](https://github.com/TurixAI/TuriX-CUA/issues).
-

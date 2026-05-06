@@ -4,11 +4,11 @@ python-dotenv>=1.0.0
 openai>=1.0.0
 
 # LLM integrations
-langchain-core>=0.1.0
-langchain-openai>=0.1.0
-langchain-anthropic>=0.1.0
-langchain-google-genai>=1.0.0
-langchain-ollama>=0.2.2
+langchain-core>=1.2.29,<2.0.0
+langchain-openai>=1.1.14,<2.0.0
+langchain-anthropic>=1.0.0,<2.0.0
+langchain-google-genai>=4.0.0,<5.0.0
+langchain-ollama>=1.0.0,<2.0.0
 
 # Search/planning
 ddgs>=6.1.0
