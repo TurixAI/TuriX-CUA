@@ -288,7 +288,7 @@ if provider == "name_you_want":
             model="gpt-4.1-mini", api_key=api_key, temperature=0.3
         )
 ```
-请根据你的 LLM 在 ChatOpenAI、ChatGoogleGenerativeAI、ChatAnthropic 或 ChatOllama 之间切换，并修改对应的模型名称。
+请根据你的 LLM 在 `ChatOpenAI`、`ChatGoogleGenerativeAI`、`ChatAnthropic` 或 `ChatOllama` 之间切换，并修改对应的模型名称。`langchain-google-genai>=4.0.0` 使用官方 `google-genai` SDK。
 
 #### <a id="skills-optional"></a>3.4 Skills（可选）
 
@@ -355,4 +355,3 @@ python examples/main.py
 - [Pull Request 流程](CONTRIBUTING.MD#pull-request-process)
 
 如果你发现 bug 或有功能需求，请 [提交 issue](https://github.com/TurixAI/TuriX-CUA/issues)。
-

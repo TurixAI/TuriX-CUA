@@ -282,7 +282,7 @@ if provider == "name_you_want":
             model="gpt-4.1-mini", api_key=api_key, temperature=0.3
         )
 ```
-Switch between ChatOpenAI, ChatGoogleGenerativeAI, ChatAnthropic, or ChatOllama base on your llm. Also change the model name.
+Switch between `ChatOpenAI`, `ChatGoogleGenerativeAI`, `ChatAnthropic`, or `ChatOllama` based on your LLM. Also change the model name. `langchain-google-genai>=4.0.0` uses the official `google-genai` SDK.
 
 #### 3.4 Skills (Optional)
 
@@ -349,4 +349,3 @@ Quick links:
 - [Pull Request Process](CONTRIBUTING.MD#pull-request-process)
 
 For bug reports and feature requests, please [open an issue](https://github.com/TurixAI/TuriX-CUA/issues).
-
