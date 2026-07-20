@@ -96,10 +96,6 @@ git checkout mac_legacy
 
 **2025 年 10 月 16 日** - 🚀 自动化爱好者的重大消息！TuriX 现已全面支持前沿的 **Qwen3-VL** 视觉语言模型，赋能 **macOS** 与 **Windows** 的顺畅自动化。基于我们的内部基准，该集成在复杂 UI 交互上可将成功率提升多达 15%。无论你是在脚本化日常流程还是处理复杂项目，Qwen3-VL 的多模态推理都能带来前所未有的精度。
 
-**2025 年 9 月 30 日** - 🎉 激动人心的更新！我们在 [TuriX API 平台](https://turixapi.io) 发布了最新 AI 模型，带来更强性能、更聪明的推理以及更顺滑的集成，帮助你实现更强大的桌面自动化。开发者和研究者，现在就去平台获取并升级你的工作流！
-
-准备好体验了吗？更新你的 `config.json` 并开始自动化吧——祝你玩得开心！🎉
-
 *欢迎关注我们的 [Discord](https://discord.gg/vkEYj4EV2n) 获取使用技巧、用户故事以及后续的 重磅发布。*
 
 ---
@@ -187,7 +183,7 @@ TuriX 在完整 OSWorld 基准测试中取得 **59.7%（213.29 / 357）** 的成
 
 
 ### <a id="download-app"></a>1. 下载应用
-为了更方便使用，[下载应用](https://turix.ai/)
+为了更方便使用，[下载应用](https://www.ngtechai.com/)
 
 或按下面的手动步骤安装：
 
@@ -241,11 +237,7 @@ osascript -e 'tell application "Safari" to do JavaScript "alert("Triggering acce
 
 #### 4.2 编辑 API 配置
 
-从我们的[官网](https://turix.ai/api-platform/)获取 API，现在可获 $20 额度。
-登录网站，密钥在页面底部。
-
 在这个 main（multi-agent）分支，你需要同时配置 brain、actor 和 memory 模型；目前该特性仅支持苹果电脑。如果开启规划（`agent.use_plan: true`），还需要配置 planner 模型。
-我们强烈建议你将 turix-actor 模型作为 actor。brain 可以使用你喜欢的任意 VLM，我们的API平台也提供Gemini-3-flash和turix-brain作为brain，适合大多数任务。
 
 在 `examples/config.json` 中编辑 API：
 ```json
@@ -253,25 +245,25 @@ osascript -e 'tell application "Safari" to do JavaScript "alert("Triggering acce
       "provider": "turix",
       "model_name": "turix-brain",
       "api_key": "YOUR_API_KEY",
-      "base_url": "https://turixapi.io/v1"
+      "base_url": "https://your-endpoint/v1"
    },
 "actor_llm": {
       "provider": "turix",
       "model_name": "turix-actor",
       "api_key": "YOUR_API_KEY",
-      "base_url": "https://turixapi.io/v1"
+      "base_url": "https://your-endpoint/v1"
    },
 "memory_llm": {
       "provider": "turix",
       "model_name": "turix-brain",
       "api_key": "YOUR_API_KEY",
-      "base_url": "https://turixapi.io/v1"
+      "base_url": "https://your-endpoint/v1"
    },
 "planner_llm": {
       "provider": "turix",
       "model_name": "turix-brain",
       "api_key": "YOUR_API_KEY",
-      "base_url": "https://turixapi.io/v1"
+      "base_url": "https://your-endpoint/v1"
    }
 ```
 

@@ -43,11 +43,7 @@ Prefer your own model? **Change in `config.json` and go.**
 
 ## 📰 Latest News
 
-**September 30, 2025** - 🎉 Exciting update! We've just released our latest AI model on the [TuriX API platform](https://turixapi.io), bringing enhanced performance, smarter reasoning, and seamless integration for even more powerful desktop automation. Developers and researchers, this is your cue—head over to the platform to access it now and elevate your workflows!
-
 **October 16, 2025** - 🚀 Big news for automation enthusiasts! TuriX now fully supports the cutting-edge **Qwen3-VL** vision-language model, empowering seamless PC automation across both **macOS** and **Windows**. This integration boosts task success rates by up to 15% on complex UI interactions (based on our internal benchmarks), making your desktop workflows smarter and faster than ever. Whether you're scripting daily routines or tackling intricate projects, Qwen3-VL's advanced multimodal reasoning brings unparalleled precision to the table.
-
-Ready to level up? Update your `config.json` and start automating—happy hacking! 🎉
 
 *Stay tuned to our [Discord](https://discord.gg/vkEYj4EV2n) for tips, user stories, and the next big drop.*
 
@@ -123,7 +119,7 @@ For more details, check our [report](https://turix.ai/technical-report/).
 
 
 ### 1. Download the App
-For easier usage, [download the app](https://turix.ai/)
+For easier usage, [download the app](https://www.ngtechai.com/)
 
 Or follow the manual setup below:
 
@@ -179,15 +175,12 @@ Edit task in `examples/config.json`:
 
 #### 4.2 Edit API Configuration
 
-Get API now with $20 credit from our [official web page](https://turix.ai/api-platform/).
-Login to our website and the key is at the bottom.
-
 Edit API in `examples/config.json`:
 ```json
 "llm": {
       "provider": "turix",
       "api_key": "YOUR_API_KEY",
-      "base_url": "https://llm.turixapi.io/v1"
+      "base_url": "https://your-endpoint/v1"
    }
 ```
 
