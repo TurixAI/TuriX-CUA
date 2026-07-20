@@ -44,8 +44,8 @@ If you use another env name, update both:
 
 Before running tasks, configure API/model keys first, otherwise the run will fail.
 
-- Recommended platform: `https://turixapi.io/console`
-- Suggested setup: keep actor on `turix-actor`, choose a fast/stable brain model from the same platform.
+- Configure your API/model keys in `examples/config.json` (set `base_url`, `api_key`, and `model_name` for each role).
+- Suggested setup: keep actor on `turix-actor`, choose a fast/stable brain model.
 
 ## 4. Install This Skill into OpenClaw
 
@@ -109,5 +109,5 @@ Example prompts:
 - Branch is `multi-agent-windows`
 - Conda env naming is consistent (`turix_env`)
 - `run_turix.ps1` placeholder path instructions are clear
-- API setup reminder is present (`https://turixapi.io/console`)
+- API setup reminder is present (configure keys/`base_url` in `examples/config.json`)
 - `openclaw skills info turix` returns ready
