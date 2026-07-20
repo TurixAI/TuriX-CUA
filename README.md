@@ -62,9 +62,11 @@ For installation and permissions, follow `OpenCLaw_TuriX_skill/README.md`.
 
 ## 📰 Latest News
 
-**May 11, 2026** - Now can download **TuriX SuperAgent** from our [official web page](https://turix.ai).
+**May 11, 2026** - Now can download **TuriX** from our [official web page](https://www.ngtechai.com).
 
-**April 8, 2026** - 🚀 Introducing **TuriX SuperPower 3.0.0-alpha** for macOS (Apple Silicon)
+**April 8, 2026** - 🚀 Introducing **TuriX 3.0.0-alpha**
+
+[Download the app](https://www.ngtechai.com/)
 
 This is our all-in-one productivity app that combines **TuriX CUA + CLI** in one workflow, and adds two new capabilities:
 - **TuriX-work** for everyday office execution and task orchestration
@@ -84,7 +86,7 @@ git checkout mac_legacy
 
 **March 5, 2026** - Updated the **Windows OpenClaw local skill** on branch `multi-agent-windows` with direct dispatch, safer pre-flight checks, and the new `OpenCLaw_TuriX_skill/agents/openai.yaml`.
 
-**Earlier updates (Jan 2026 and before)** - We shipped v0.3 (DuckDuckGo, Ollama, recoverable memory compression, Skills), published the TuriX OpenClaw skill on ClawHub, upgraded the core architecture to multi-model, and rolled out major model capability improvements including Qwen3-VL support and TuriX API model upgrades.
+**Earlier updates (Jan 2026 and before)** - We shipped v0.3 (DuckDuckGo, Ollama, recoverable memory compression, Skills), published the TuriX OpenClaw skill on ClawHub, upgraded the core architecture to multi-model, and rolled out major model capability improvements including Qwen3-VL support.
 
 Ready to level up? Update your `config.json` and start automating—happy hacking! 🎉
 
@@ -93,9 +95,9 @@ Ready to level up? Update your `config.json` and start automating—happy hackin
 ---
 
 ## 🖼️ Demos
-<p align="center"><strong>TuriX SuperPower App Demo</strong></p>
+<p align="center"><strong>TuriX App Demo</strong></p>
 <p align="center">
-   <img src="./doc/app_demo.png" width="1600" alt="TuriX SuperPower app demo">
+   <img src="./doc/app_demo.png" width="1600" alt="TuriX app demo">
 </p>
 
 <h3 align="center">MacOS Demo</h3>
@@ -180,7 +182,7 @@ For more details, check our [report](https://turix.ai/technical-report/).
 
 
 ### 1. Download the App
-For easier usage, [download the app](https://turix.ai/)
+For easier usage, [download the app](https://www.ngtechai.com/)
 
 Or follow the manual setup below:
 
@@ -236,12 +238,8 @@ Edit task in `examples/config.json`:
 
 #### 4.2 Edit API Configuration
 
-Get API now with credit from our [official web page](https://turix.ai/api-platform/).
-Login to our website and the key is at the bottom.
-
 In this main (multi-agent) branch, you need to set the brain, actor, and memory models. It only supports mac for now. If you enable planning
 (`agent.use_plan: true`), you also need to set the planner model.
-We strongly recommand you to set the turix-actor model as the actor. The brain can be any VLMs you like, we provide qwen3.5vl in our platform. Gemini-3-pro is tested to be smartest, and Gemini-3-flash is fast and smart enough for most of the tasks. 
 
 Edit API in `examples/config.json`:
 ```json
@@ -249,25 +247,25 @@ Edit API in `examples/config.json`:
       "provider": "turix",
       "model_name": "turix-brain",
       "api_key": "YOUR_API_KEY",
-      "base_url": "https://turixapi.io/v1"
+      "base_url": "https://your-endpoint/v1"
    },
 "actor_llm": {
       "provider": "turix",
       "model_name": "turix-actor",
       "api_key": "YOUR_API_KEY",
-      "base_url": "https://turixapi.io/v1"
+      "base_url": "https://your-endpoint/v1"
    },
 "memory_llm": {
       "provider": "turix",
       "model_name": "turix-brain",
       "api_key": "YOUR_API_KEY",
-      "base_url": "https://turixapi.io/v1"
+      "base_url": "https://your-endpoint/v1"
    },
 "planner_llm": {
       "provider": "turix",
       "model_name": "turix-brain",
       "api_key": "YOUR_API_KEY",
-      "base_url": "https://turixapi.io/v1"
+      "base_url": "https://your-endpoint/v1"
    }
 ```
 
