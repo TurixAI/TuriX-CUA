@@ -45,10 +45,6 @@ Prefer your own model? **Change in `config.json` and go.**
 
 **October 16, 2025** - 🚀 Big news for automation enthusiasts! TuriX now fully supports the cutting-edge **Qwen3-VL** vision-language model, empowering seamless PC automation across **Windows**. This integration boosts task success rates by up to 15% on complex UI interactions (based on our internal benchmarks), making your desktop workflows smarter and faster than ever. Whether you're scripting daily routines or tackling intricate projects, Qwen3-VL's advanced multimodal reasoning brings unparalleled precision to the table.
 
-Ready to level up? Update your `config.json` and start automating—happy hacking! 🎉
-
-**September 30, 2025** - 🎉 Exciting update! We've just released our latest AI model on the [TuriX API platform](https://turixapi.io), bringing enhanced performance, smarter reasoning, and seamless integration for even more powerful desktop automation. Developers and researchers, this is your cue—head over to the platform to access it now and elevate your workflows!
-
 *Stay tuned to our [Discord](https://discord.gg/vkEYj4EV2n) for tips, user stories, and the next big drop.*
 
 ---
@@ -100,7 +96,9 @@ For more details, check our [report](https://turix.ai/technical-report/).
 > **We never collect data**—install, grant permissions, and hack away.
 
 ### 1. Download the App
-The desktop app is not available on Windows yet. Please use the manual setup below.
+For easier usage, [download the app](https://www.ngtechai.com/)
+
+Or follow the manual setup below:
 
 ### 2. Create a Python 3.12 Environment
 Firstly Clone the repository and run:
@@ -130,15 +128,12 @@ There is no use_ui parameter in the windows version, the state is only a screens
 
 #### 3.2 Edit API Configuration
 
-Get API now with $20 credit from our [official web page](https://turix.ai/api-platform/).
-Login to our website and the key is at the bottom.
-
 Edit API in `examples/config.json`:
 ```json
 "llm": {
       "provider": "turix",
       "api_key": "YOUR_API_KEY",
-      "base_url": "https://llm.turixapi.io/v1"
+      "base_url": "https://your-endpoint/v1"
    }
 ```
 
