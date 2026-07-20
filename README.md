@@ -79,10 +79,6 @@ git checkout multi-agent-linux
 
 **October 16, 2025** - 🚀 Big news for automation enthusiasts! TuriX now fully supports the cutting-edge **Qwen3-VL** vision-language model, empowering seamless PC automation across both **macOS** and **Windows**. This integration boosts task success rates by up to 15% on complex UI interactions (based on our internal benchmarks), making your desktop workflows smarter and faster than ever. Whether you're scripting daily routines or tackling intricate projects, Qwen3-VL's advanced multimodal reasoning brings unparalleled precision to the table.
 
-**September 30, 2025** - 🎉 Exciting update! We've just released our latest AI model on the [TuriX API platform](https://turixapi.io), bringing enhanced performance, smarter reasoning, and seamless integration for even more powerful desktop automation. Developers and researchers, this is your cue—head over to the platform to access it now and elevate your workflows!
-
-Ready to level up? Update your `config.json` and start automating—happy hacking! 🎉
-
 *Stay tuned to our [Discord](https://discord.gg/vkEYj4EV2n) for tips, user stories, and the next big drop.*
 
 ---
@@ -137,7 +133,7 @@ For more details, check our [report](https://turix.ai/technical-report/).
 > For OpenClaw local skill installation, read `OpenCLaw_TuriX_skill/README.md` first.
 
 ### 1. Download the App
-For easier usage, [download the app](https://turix.ai/)
+For easier usage, [download the app](https://www.ngtechai.com/)
 
 Or follow the manual setup below:
 
@@ -169,12 +165,8 @@ There is no use_ui parameter in the windows version, the state is only a screens
 
 #### 3.2 Edit API Configuration
 
-Get API now with credit from our [official web page](https://turix.ai/api-platform/).
-Login to our website and the key is at the bottom.
-
 In this main (multi-agent) branch, you need to set the brain, actor, and memory models. It only supports mac for now. If you enable planning
 (`agent.use_plan: true`), you also need to set the planner model.
-We strongly recommand you to set the turix-actor model as the actor. The brain can be any VLMs you like, we provide qwen3vl in out platform. Gemini-3-pro is tested to be smartest, and Gemini-3-flash is fast and smart enough for most of the tasks. Since turix-brain model is updating now, we recommend you to use gemini in our API platform.
 
 Edit API in `examples/config.json`:
 ```json
@@ -182,25 +174,25 @@ Edit API in `examples/config.json`:
       "provider": "turix",
       "model_name": "gemini-3-flash-preview",
       "api_key": "YOUR_API_KEY",
-      "base_url": "https://turixapi.io/v1"
+      "base_url": "https://your-endpoint/v1"
    },
 "actor_llm": {
       "provider": "turix",
       "model_name": "turix-actor",
       "api_key": "YOUR_API_KEY",
-      "base_url": "https://turixapi.io/v1"
+      "base_url": "https://your-endpoint/v1"
    },
 "memory_llm": {
       "provider": "turix",
       "model_name": "gemini-3-flash-preview",
       "api_key": "YOUR_API_KEY",
-      "base_url": "https://turixapi.io/v1"
+      "base_url": "https://your-endpoint/v1"
    },
 "planner_llm": {
       "provider": "turix",
       "model_name": "gemini-3-flash-preview",
       "api_key": "YOUR_API_KEY",
-      "base_url": "https://turixapi.io/v1"
+      "base_url": "https://your-endpoint/v1"
    }
 ```
 
