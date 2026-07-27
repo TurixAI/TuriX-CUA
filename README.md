@@ -158,6 +158,8 @@ TuriX scores **64.2% (229.88 / 358)** on the full OSWorld benchmark, ranking **3
 
 For more details, check our [report](https://turix.ai/technical-report/).
 
+For complementary live-web browser-agent evaluation, see [ClawBench](https://github.com/TIGER-AI-Lab/ClawBench); this is an external benchmark reference and does not imply integration with or support from TuriX.
+
 ## 🚀 Quick‑Start (macOS 15+)
 
 > **We never collect data**—install, grant permissions, and hack away.
