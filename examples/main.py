@@ -194,6 +194,28 @@ def build_llm(cfg: dict, *, enable_thinking: bool | None = None):
     max_tokens = cfg.get("max_tokens")
     timeout = cfg.get("timeout")
 
+    if provider in {"atlascloud", "atlas"}:
+        atlas_api_key = (
+            cfg.get("api_key")
+            or os.getenv("ATLASCLOUD_API_KEY")
+            or os.getenv("ATLAS_CLOUD_API_KEY")
+        )
+        if not atlas_api_key:
+            raise ValueError(
+                "Atlas Cloud provider requires 'api_key' or ATLASCLOUD_API_KEY."
+            )
+        return build_openai_compatible_llm(
+            model_name=model_name or "qwen/qwen3.5-flash",
+            api_key=atlas_api_key,
+            base_url=base_url or "https://api.atlascloud.ai/v1",
+            temperature=cfg.get("temperature", 0.1),
+            supports_tool_calling=True,
+            supports_response_format=False,
+            model_kwargs=model_kwargs,
+            max_tokens=max_tokens,
+            timeout=timeout,
+        )
+
     if provider == "turix":
         if not base_url:
             raise ValueError("OpenAI‑compatible provider requires 'base_url'.")
