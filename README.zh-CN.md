@@ -70,10 +70,10 @@ https://clawhub.ai/Tongyu-Yan/turix-cua
 
 ## <a id="latest-news"></a>📰 最新动态
 
-**2026年 5 月 11 日** - 现在可以在我们的[官网](https://turix.ai)上下载**TuriX超级智能体**。
+**2026年 5 月 11 日** - 现在可以在我们的[官网](https://www.ngtechai.com)上下载**TuriX**。
 
-**2026 年 4 月 8 日** - 🚀 重磅发布 **TuriX SuperPower 3.0.0-alpha**（macOS Apple Silicon）：  
-[dmg安装包（仅支持Mac）](https://turix-staging-apollo.sfo3.cdn.digitaloceanspaces.com/turix-app/desktop/releases/Turix-SuperPower_3.0.0-alpha_aarch64.dmg)
+**2026 年 4 月 8 日** - 🚀 重磅发布 **TuriX 3.0.0-alpha**：  
+[下载应用](https://www.ngtechai.com/)
 
 这是我们新一代一体化工作应用，把 **TuriX 的 CUA 能力与 CLI 能力**深度融合，并新增两大能力：
 - **TuriX-work**：面向办公场景的任务执行与流程编排
@@ -93,7 +93,7 @@ git checkout mac_legacy
 
 **2026 年 3 月 5 日** - 我们更新了 `multi-agent-windows` 分支上的 **OpenClaw Windows 本地技能包**，支持更直接的任务分发、更安全的预检查，以及新的 `OpenCLaw_TuriX_skill/agents/openai.yaml` 接口文件。
 
-**更早更新（2026 年 1 月及之前）** - 我们已完成 v0.3 发布（DuckDuckGo、Ollama、可恢复内存压缩、Skills）、发布 TuriX OpenClaw 技能、升级多模型架构，并上线包括 Qwen3-VL 支持与 TuriX API 模型升级在内的多项能力增强。
+**更早更新（2026 年 1 月及之前）** - 我们已完成 v0.3 发布（DuckDuckGo、Ollama、可恢复内存压缩、Skills）、发布 TuriX OpenClaw 技能、升级多模型架构，并上线包括 Qwen3-VL 支持在内的多项能力增强。
 
 准备好体验了吗？更新你的 `config.json` 并开始自动化吧——祝你玩得开心！🎉
 
@@ -102,9 +102,9 @@ git checkout mac_legacy
 ---
 
 ## <a id="demos"></a>🖼️ 演示
-<p align="center"><strong>TuriX SuperPower App 演示</strong></p>
+<p align="center"><strong>TuriX App 演示</strong></p>
 <p align="center">
-   <img src="./doc/app_demo.png" width="1600" alt="TuriX SuperPower 应用演示">
+   <img src="./doc/app_demo.png" width="1600" alt="TuriX 应用演示">
 </p>
 
 <h3 align="center">MacOS 演示</h3>
@@ -189,7 +189,7 @@ TuriX 在完整 OSWorld 基准测试中取得 **64.2%（229.88 / 358）** 的成
 
 
 ### <a id="download-app"></a>1. 下载应用
-为了更方便使用，[下载应用](https://turix.ai/)
+为了更方便使用，[下载应用](https://www.ngtechai.com/)
 
 或按下面的手动步骤安装：
 
@@ -243,11 +243,7 @@ osascript -e 'tell application "Safari" to do JavaScript "alert("Triggering acce
 
 #### 4.2 编辑 API 配置
 
-从我们的[官网](https://turix.ai/api-platform/)获取 API。
-登录网站，密钥在页面底部。
-
 在这个 main（multi-agent）分支，你需要同时配置 brain、actor 和 memory 模型；目前该特性仅支持苹果电脑。如果开启规划（`agent.use_plan: true`），还需要配置 planner 模型。
-我们强烈建议你将 turix-actor 模型作为 actor。brain 可以使用你喜欢的任意 VLM，我们的API平台也提供Gemini-3-flash和turix-brain作为brain，适合大多数任务。
 
 在 `examples/config.json` 中编辑 API：
 ```json
@@ -255,25 +251,25 @@ osascript -e 'tell application "Safari" to do JavaScript "alert("Triggering acce
       "provider": "turix",
       "model_name": "turix-brain",
       "api_key": "YOUR_API_KEY",
-      "base_url": "https://turixapi.io/v1"
+      "base_url": "https://your-endpoint/v1"
    },
 "actor_llm": {
       "provider": "turix",
       "model_name": "turix-actor",
       "api_key": "YOUR_API_KEY",
-      "base_url": "https://turixapi.io/v1"
+      "base_url": "https://your-endpoint/v1"
    },
 "memory_llm": {
       "provider": "turix",
       "model_name": "turix-brain",
       "api_key": "YOUR_API_KEY",
-      "base_url": "https://turixapi.io/v1"
+      "base_url": "https://your-endpoint/v1"
    },
 "planner_llm": {
       "provider": "turix",
       "model_name": "turix-brain",
       "api_key": "YOUR_API_KEY",
-      "base_url": "https://turixapi.io/v1"
+      "base_url": "https://your-endpoint/v1"
    }
 ```
 
